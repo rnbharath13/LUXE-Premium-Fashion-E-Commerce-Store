@@ -1,37 +1,25 @@
 import express from 'express';
-import { getConnection } from '../config/db.js';
+import { supabase } from './supabase.js';
 
 const router = express.Router();
 
-// Get all categories
 router.get('/', async (req, res) => {
   try {
-    const pool = await getConnection();
-    const result = await pool.request().query(`
-      SELECT * FROM categories
-      ORDER BY name ASC
-    `);
-    res.json(result.recordset);
+    const { data, error } = await supabase.from('categories').select('*').order('name');
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get category by slug
 router.get('/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
-    const pool = await getConnection();
-    const result = await pool.request().query(`
-      SELECT * FROM categories
-      WHERE slug = '${slug}'
-    `);
-
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    res.json(result.recordset[0]);
+    const { data, error } = await supabase.from('categories').select('*').eq('slug', slug).single();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Category not found' });
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

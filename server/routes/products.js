@@ -1,98 +1,54 @@
 import express from 'express';
-import { getConnection } from '../config/db.js';
-import sql from 'mssql';
+import { supabase } from './supabase.js';
 
 const router = express.Router();
 
-// Get all products with optional filters
 router.get('/', async (req, res) => {
   try {
-    const { category, tags, search, sortBy, skip = 0, limit = 100 } = req.query;
-    const pool = await getConnection();
-    let query = `
-      SELECT p.*, c.name as category_name, b.name as brand_name,
-        STRING_AGG(pt.tag, ',') as tags
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN product_tags pt ON p.id = pt.product_id
-      WHERE 1=1
-    `;
+    const { category, search, sortBy, skip = 0, limit = 100 } = req.query;
+    let query = supabase.from('products').select('*,categories(name,slug),brands(name)', { count: 'exact' });
 
     if (category && category !== 'all') {
-      query += ` AND c.slug = '${category}'`;
+      query = query.eq('categories.slug', category);
     }
     if (search) {
-      query += ` AND (p.name LIKE '%${search}%' OR b.name LIKE '%${search}%')`;
-    }
-    if (tags) {
-      const tagList = tags.split(',').map(t => `'${t}'`).join(',');
-      query += ` AND pt.tag IN (${tagList})`;
+      query = query.or(`name.ilike.%${search}%,brands.name.ilike.%${search}%`);
     }
 
-    query += ` GROUP BY p.id, p.name, p.slug, p.category_id, p.brand_id, p.description, p.price, p.original_price, p.rating, p.reviews_count, p.in_stock, p.created_at, p.updated_at, c.name, b.name`;
+    if (sortBy === 'price-asc') query = query.order('price', { ascending: true });
+    else if (sortBy === 'price-desc') query = query.order('price', { ascending: false });
+    else if (sortBy === 'rating') query = query.order('rating', { ascending: false });
+    else query = query.order('created_at', { ascending: false });
 
-    if (sortBy === 'price-asc') query += ` ORDER BY p.price ASC`;
-    else if (sortBy === 'price-desc') query += ` ORDER BY p.price DESC`;
-    else if (sortBy === 'rating') query += ` ORDER BY p.rating DESC`;
-    else query += ` ORDER BY p.created_at DESC`;
+    query = query.range(skip, skip + limit - 1);
 
-    query += ` OFFSET ${skip} ROWS FETCH NEXT ${limit} ROWS ONLY`;
-
-    const result = await pool.request().query(query);
-    res.json(result.recordset);
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get single product by ID
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const pool = await getConnection();
+    const { data: product, error: productError } = await supabase
+      .from('products')
+      .select('*,categories(name,slug),brands(name)')
+      .eq('id', id)
+      .single();
 
-    const productQuery = `
-      SELECT p.*, c.name as category_name, b.name as brand_name
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      WHERE p.id = '${id}'
-    `;
+    if (productError) throw productError;
+    if (!product) return res.status(404).json({ error: 'Product not found' });
 
-    const imagesQuery = `
-      SELECT * FROM product_images
-      WHERE product_id = '${id}'
-      ORDER BY is_primary DESC, display_order ASC
-    `;
-
-    const variantsQuery = `
-      SELECT * FROM product_variants
-      WHERE product_id = '${id}'
-    `;
-
-    const tagsQuery = `
-      SELECT tag FROM product_tags
-      WHERE product_id = '${id}'
-    `;
-
-    const [productResult, imagesResult, variantsResult, tagsResult] = await Promise.all([
-      pool.request().query(productQuery),
-      pool.request().query(imagesQuery),
-      pool.request().query(variantsQuery),
-      pool.request().query(tagsQuery)
+    const [{ data: images }, { data: variants }, { data: tags }] = await Promise.all([
+      supabase.from('product_images').select('*').eq('product_id', id).order('is_primary', { ascending: false }),
+      supabase.from('product_variants').select('*').eq('product_id', id),
+      supabase.from('product_tags').select('tag').eq('product_id', id)
     ]);
 
-    if (productResult.recordset.length === 0) {
-      return res.status(404).json({ error: 'Product not found' });
-    }
-
-    const product = productResult.recordset[0];
-    product.images = imagesResult.recordset;
-    product.variants = variantsResult.recordset;
-    product.tags = tagsResult.recordset.map(t => t.tag);
-
-    res.json(product);
+    res.json({ ...product, images, variants, tags: tags?.map(t => t.tag) || [] });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
