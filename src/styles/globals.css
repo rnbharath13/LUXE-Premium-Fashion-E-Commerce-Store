@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Variables ─────────────────────────────────── */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f6f3;
+  --bg-card: #ffffff;
+  --bg-elevated: #f2ede8;
+  --border: rgba(0, 0, 0, 0.1);
+  --border-hover: rgba(0, 0, 0, 0.3);
+  --text-primary: #1c1c1c;
+  --text-secondary: #5c5c5c;
+  --text-muted: #9a9a9a;
+  --accent: #8b7355;
+  --accent-hover: #6d5a42;
+  --accent-red: #c41e3a;
+  --accent-gold: #c9a96e;
+  --color-dark: #1c1c1c;
+  --color-white: #ffffff;
+  --font-serif: 'Playfair Display', serif;
+  --font-sans: 'Inter', sans-serif;
+}
+
+/* ── Base Reset ────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: rgba(139,115,85,0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139,115,85,0.7); }
+
+/* ── Form Controls ─────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  height: 3px;
+  outline: none;
+  width: 100%;
+}
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-dark);
+  cursor: pointer;
+}
+input[type='checkbox'] {
+  accent-color: var(--color-dark);
+  cursor: pointer;
+}
+
+/* ── Utilities ─────────────────────────────────────── */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.divider { height: 1px; background: var(--border); }
+.font-serif { font-family: var(--font-serif); }

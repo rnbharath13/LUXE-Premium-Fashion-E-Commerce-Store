@@ -1,0 +1,97 @@
+.shop-page { min-height: 100vh; background: var(--bg-primary); }
+
+/* Header */
+.shop-header { background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+.shop-header-inner { max-width: 80rem; margin: 0 auto; padding: 2.5rem 1rem; }
+@media (min-width: 640px) { .shop-header-inner { padding: 2.5rem 1.5rem; } }
+.shop-header-title { font-size: 1.875rem; font-weight: 700; font-family: var(--font-serif); color: var(--text-primary); margin-bottom: 0.25rem; }
+.shop-header-count { font-size: 0.875rem; color: var(--text-muted); }
+
+/* Category tabs */
+.shop-cat-bar { background: var(--color-white); border-bottom: 1px solid var(--border); }
+.shop-cat-inner { max-width: 80rem; margin: 0 auto; padding: 0 1rem; }
+@media (min-width: 640px) { .shop-cat-inner { padding: 0 1.5rem; } }
+.shop-cat-scroll { display: flex; gap: 1.5rem; overflow-x: auto; }
+.shop-cat-btn {
+  padding: 1rem 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+.shop-cat-btn.active { border-bottom-color: var(--color-dark); color: var(--text-primary); }
+.shop-cat-btn:not(.active) { color: var(--text-muted); }
+
+/* Toolbar */
+.shop-body { max-width: 80rem; margin: 0 auto; padding: 2rem 1rem; }
+@media (min-width: 640px) { .shop-body { padding: 2rem 1.5rem; } }
+
+/* Filter panel */
+.shop-filter-panel { padding: 1.5rem; margin-bottom: 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border); animation: scaleIn 0.25s ease-out; }
+.shop-filter-section-title { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-primary); margin-bottom: 0.75rem; }
+.shop-price-label { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+
+.shop-tag-btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.shop-tag-btn.active { background: var(--color-dark); border-color: var(--color-dark); color: var(--color-white); }
+
+.shop-clear-btn { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-red); background: transparent; border: none; cursor: pointer; margin-top: 1.25rem; }
+
+/* Active filter chips */
+.shop-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 500; background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+.shop-chip-remove { background: transparent; border: none; cursor: pointer; display: flex; align-items: center; }
+
+/* Filter / sort toolbar */
+.shop-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  height: 2.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.shop-filter-btn.active { background: var(--bg-elevated); color: var(--text-primary); }
+.shop-filter-btn:not(.active) { color: var(--text-secondary); }
+
+.shop-filter-indicator {
+  width: 1rem;
+  height: 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-dark);
+  color: var(--color-white);
+}
+
+.shop-view-btn { padding: 0.5rem; transition: all 0.15s; background: transparent; border: none; cursor: pointer; }
+.shop-view-btn.active   { color: var(--text-primary); background: var(--bg-elevated); }
+.shop-view-btn:not(.active) { color: var(--text-muted); }
+
+/* Empty state */
+.shop-empty { text-align: center; padding: 6rem 0; }
+.shop-empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.shop-empty-title { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+.shop-empty-desc  { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 1.5rem; }

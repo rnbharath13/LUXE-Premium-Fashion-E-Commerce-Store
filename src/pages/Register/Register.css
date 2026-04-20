@@ -1,0 +1,25 @@
+.register-editorial-content { position: absolute; bottom: 2.5rem; left: 2.5rem; right: 2.5rem; }
+.register-editorial-logo { font-family: var(--font-serif); font-size: 2.5rem; font-weight: 700; color: var(--color-white); }
+.register-editorial-heading { font-size: 1.5rem; font-weight: 700; color: var(--color-white); font-family: var(--font-serif); margin-top: 0.75rem; margin-bottom: 1rem; }
+
+.register-perk-list { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+.register-perk-item { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; color: rgba(255,255,255,0.85); }
+.register-perk-icon-wrap {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(201,169,110,0.3);
+  border: 1px solid rgba(201,169,110,0.5);
+}
+.register-perk-icon { color: var(--accent-gold); }
+
+.register-editorial-img { position: absolute; inset: 0; }
+.register-editorial-img img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.register-editorial-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.2) 60%, transparent 100%);
+}
