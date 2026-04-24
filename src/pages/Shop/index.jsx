@@ -16,39 +16,51 @@ const SORTS = [
 const CATS = ['all', 'men', 'women', 'accessories', 'footwear', 'outerwear'];
 const TAGS = ['New Arrival', 'Sale', 'Best Seller', 'Premium', 'Trending'];
 
+const SUB_CATS = {
+  men:         ['all', 'shirts', 'blazers', 'trousers', 'knitwear', 'outerwear'],
+  women:       ['all', 'dresses', 'tops', 'trousers', 'knitwear', 'bags'],
+  footwear:    ['all', 'sneakers', 'boots', 'sandals', 'formal'],
+  accessories: ['all', 'bags', 'jewellery', 'belts', 'scarves'],
+};
+
 export default function Shop() {
   const [searchParams]               = useSearchParams();
   const { filters, setFilters, resetFilters } = useStore();
   const [showFilters, setShowFilters] = useState(false);
   const [gridView,    setGridView]    = useState(true);
-  const [localSearch, setLocalSearch] = useState(filters.search || '');
+  const [localSearch, setLocalSearch] = useState('');
   const [priceRange,  setPriceRange]  = useState([0, 500]);
   const [allProducts, setAllProducts] = useState([]);
   const [loading,     setLoading]     = useState(true);
+  const [subcategory, setSubcategory] = useState('all');
 
   useEffect(() => {
     const cat = searchParams.get('cat');
+    const sub = searchParams.get('sub');
     const tag = searchParams.get('tag');
     const q   = searchParams.get('q');
     resetFilters();
-    if (cat && cat !== 'new') setFilters({ category: cat });
-    else if (cat === 'new')   setFilters({ category: 'all', tags: ['New Arrival'] });
+    setSubcategory(sub || 'all');
+    if (cat === 'new')  setFilters({ category: 'all', tags: ['New Arrival'] });
+    else if (cat === 'sale') setFilters({ category: 'all', tags: ['Sale'] });
+    else if (cat)       setFilters({ category: cat });
     if (tag) setFilters({ tags: [tag] });
-    if (q)   setFilters({ search: q });
+    if (q)   { setFilters({ search: q }); setLocalSearch(q); }
   }, [searchParams]);
 
   useEffect(() => {
     setLoading(true);
-    api.get('/products?limit=200')
+    const params = new URLSearchParams({ limit: 200 });
+    if (filters.category && filters.category !== 'all') params.set('category', filters.category);
+    if (subcategory && subcategory !== 'all') params.set('subcategory', subcategory);
+    api.get(`/products?${params}`)
       .then(({ products }) => setAllProducts((products || []).map(normalizeProduct)))
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters.category, subcategory]);
 
   const filtered = useMemo(() => {
     let list = [...allProducts];
-    if (filters.category && filters.category !== 'all')
-      list = list.filter((p) => p.category === filters.category);
     if (filters.search)
       list = list.filter((p) => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
     if (filters.tags?.length)
@@ -65,7 +77,8 @@ export default function Shop() {
     const tags = filters.tags || [];
     setFilters({ tags: tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag] });
   };
-  const hasFilters = filters.category !== 'all' || filters.search || filters.tags?.length > 0;
+  const hasFilters   = filters.category !== 'all' || filters.search || filters.tags?.length > 0 || subcategory !== 'all';
+  const subCats      = SUB_CATS[filters.category] || null;
 
   return (
     <div className="shop-page">
@@ -91,7 +104,7 @@ export default function Shop() {
             {CATS.map((cat) => (
               <button
                 key={cat}
-                onClick={() => setFilters({ category: cat })}
+                onClick={() => { setFilters({ category: cat }); setSubcategory('all'); }}
                 className={`shop-cat-btn${filters.category === cat ? ' active' : ''}`}
               >
                 {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -100,6 +113,26 @@ export default function Shop() {
           </div>
         </div>
       </div>
+
+      {/* Subcategory tabs */}
+      {subCats && (
+        <div className="shop-cat-bar" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+          <div className="shop-cat-inner">
+            <div className="shop-cat-scroll scrollbar-hide">
+              {subCats.map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => setSubcategory(sub)}
+                  className={`shop-cat-btn${subcategory === sub ? ' active' : ''}`}
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  {sub === 'all' ? `All ${filters.category.charAt(0).toUpperCase() + filters.category.slice(1)}` : sub.charAt(0).toUpperCase() + sub.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="shop-body">
         {/* Toolbar */}
@@ -145,7 +178,7 @@ export default function Shop() {
               </div>
             </div>
             {hasFilters && (
-              <button className="shop-clear-btn" onClick={() => { resetFilters(); setLocalSearch(''); setPriceRange([0, 500]); }}>
+              <button className="shop-clear-btn" onClick={() => { resetFilters(); setLocalSearch(''); setPriceRange([0, 500]); setSubcategory('all'); }}>
                 <X size={13} /> Clear all filters
               </button>
             )}
@@ -180,7 +213,7 @@ export default function Shop() {
             <p className="shop-empty-icon">🔍</p>
             <p className="shop-empty-title">No products found</p>
             <p className="shop-empty-desc">Try adjusting your filters</p>
-            <button onClick={() => { resetFilters(); setLocalSearch(''); setPriceRange([0, 500]); }} className="btn-primary">
+            <button onClick={() => { resetFilters(); setLocalSearch(''); setPriceRange([0, 500]); setSubcategory('all'); }} className="btn-primary">
               Clear Filters
             </button>
           </div>

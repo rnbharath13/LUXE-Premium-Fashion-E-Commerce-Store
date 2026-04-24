@@ -15,7 +15,7 @@ const heroSlides = [
   {
     id: 2, label: 'Menswear Edit', headline: 'Craft Meets', headlineAccent: 'Modern Style',
     sub: 'Impeccably tailored pieces for the contemporary man.',
-    image: 'https://images.unsplash.com/photo-1506634861428-a6d74f3a5073?auto=format&fit=crop&w=1600&q=85',
+    image: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1600&q=85',
     cat: 'men', cta: 'Shop Men', align: 'right',
   },
   {

@@ -1,15 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag } from 'lucide-react';
 import useStore from '../../store/useStore';
-import ProductCard from '../../components/ProductCard';
-import { products } from '../../data/products';
 import './Cart.css';
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, showToast } = useStore();
   const total       = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const count       = cart.reduce((s, i) => s + i.quantity, 0);
-  const suggestions = products.filter((p) => !cart.find((c) => c.id === p.id)).slice(0, 4);
+  const suggestions = [];
   const shipping    = total > 150 ? 0 : 9.99;
   const tax         = total * 0.08;
   const grandTotal  = total + shipping + tax;

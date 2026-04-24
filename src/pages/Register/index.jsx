@@ -80,7 +80,7 @@ export default function Register() {
                 <label className="auth-label">{label}</label>
                 <div className="auth-input-wrap">
                   <Icon size={14} className="auth-input-icon" />
-                  <input type={type} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="input-field pl-9" placeholder={ph} />
+                  <input type={type} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="input-field" placeholder={ph} />
                 </div>
               </div>
             ))}
@@ -89,7 +89,7 @@ export default function Register() {
               <label className="auth-label">Password</label>
               <div className="auth-input-wrap">
                 <Lock size={14} className="auth-input-icon" />
-                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pl-9 pr-9" placeholder="Min. 8 characters" />
+                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pr-9" placeholder="Min. 8 characters" />
                 <button type="button" className="auth-input-icon-right" onClick={() => setShowPwd(!showPwd)}>
                   {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
@@ -100,7 +100,7 @@ export default function Register() {
               <label className="auth-label">Confirm Password</label>
               <div className="auth-input-wrap">
                 <Lock size={14} className="auth-input-icon" />
-                <input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} className="input-field pl-9" placeholder="Re-enter password" />
+                <input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} className="input-field" placeholder="Re-enter password" />
               </div>
             </div>
 

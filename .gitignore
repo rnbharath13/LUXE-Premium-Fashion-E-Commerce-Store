@@ -1,16 +1,33 @@
 # Dependencies
 node_modules/
-npm-debug.log
-yarn-error.log
+server/node_modules/
 
-# Environment
+# Environment — never commit secrets
 .env
 .env.local
 .env.*.local
+server/.env
 
-# Build
+# Build output
 dist/
 build/
+
+# Uploads (user-generated, not source)
+server/uploads/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Cache
+.cache/
+.eslintcache
+
+# Testing
+coverage/
+.nyc_output/
 
 # IDE
 .vscode/
@@ -23,14 +40,4 @@ build/
 .DS_Store
 Thumbs.db
 
-# Logs
-logs/
-*.log
-
-# Cache
-.cache/
-.eslintcache
-
-# Testing
-coverage/
-.nyc_output/
+# Lock files (keep package-lock, ignore nothing extra here)

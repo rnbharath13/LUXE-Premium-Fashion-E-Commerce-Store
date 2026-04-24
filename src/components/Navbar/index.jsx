@@ -10,45 +10,45 @@ const megaMenus = {
   "Men's": {
     featured: { label: 'New This Season', image: U('1507679799987-c73779587ccf'), to: '/shop?cat=men&tag=New+Arrival' },
     links: [
-      { label: 'All Men\'s', to: '/shop?cat=men',             image: U('1506634861428-a6d74f3a5073') },
-      { label: 'Shirts',     to: '/shop?cat=men&q=shirt',     image: U('1490114538077-0a7f8cb49891') },
-      { label: 'Blazers',    to: '/shop?cat=men&q=blazer',    image: U('1507679799987-c73779587ccf') },
-      { label: 'Trousers',   to: '/shop?cat=men&q=pants',     image: U('1552374196-1ab2a1c593e8') },
-      { label: 'Knitwear',   to: '/shop?cat=men&q=turtleneck',image: U('1564859227655-91b8c0dc5ccc') },
-      { label: 'Outerwear',  to: '/shop?cat=outerwear',       image: U('1551028719-00167b16eac5') },
+      { label: "All Men's", to: '/shop?cat=men',               image: U('1507679799987-c73779587ccf') },
+      { label: 'Shirts',    to: '/shop?cat=men&sub=shirts',     image: U('1490114538077-0a7f8cb49891') },
+      { label: 'Blazers',   to: '/shop?cat=men&sub=blazers',    image: U('1507679799987-c73779587ccf') },
+      { label: 'Trousers',  to: '/shop?cat=men&sub=trousers',   image: U('1552374196-1ab2a1c593e8') },
+      { label: 'Knitwear',  to: '/shop?cat=men&sub=knitwear',   image: U('1610652492500-ded49ceeb378') },
+      { label: 'Outerwear', to: '/shop?cat=men&sub=outerwear',  image: U('1551028719-00167b16eac5') },
     ],
   },
   "Women's": {
     featured: { label: 'New Arrivals', image: U('1515886657613-9f3515b0c78f'), to: '/shop?cat=women&tag=New+Arrival' },
     links: [
-      { label: "All Women's", to: '/shop?cat=women',             image: U('1483985988355-763728e1935b') },
-      { label: 'Dresses',     to: '/shop?cat=women&q=dress',     image: U('1515886657613-9f3515b0c78f') },
-      { label: 'Tops',        to: '/shop?cat=women&q=blouse',    image: U('1581044777550-4cfa4e5db0b8') },
-      { label: 'Trousers',    to: '/shop?cat=women&q=trousers',  image: U('1509631179647-0177331693ae') },
-      { label: 'Knitwear',    to: '/shop?cat=women&q=sweater',   image: U('1576566588028-4147f3842f27') },
-      { label: 'Bags',        to: '/shop?cat=women&q=tote',      image: U('1548036328-c9fa89d128fa') },
+      { label: "All Women's", to: '/shop?cat=women',              image: U('1483985988355-763728e1935b') },
+      { label: 'Dresses',     to: '/shop?cat=women&sub=dresses',  image: U('1515886657613-9f3515b0c78f') },
+      { label: 'Tops',        to: '/shop?cat=women&sub=tops',     image: U('1576566588028-4147f3842f27') },
+      { label: 'Trousers',    to: '/shop?cat=women&sub=trousers', image: U('1509631179647-0177331693ae') },
+      { label: 'Knitwear',    to: '/shop?cat=women&sub=knitwear', image: U('1576566588028-4147f3842f27') },
+      { label: 'Bags',        to: '/shop?cat=women&sub=bags',     image: U('1548036328-c9fa89d128fa') },
     ],
   },
 };
 
 const navItems = [
   { label: 'New',         to: '/shop?cat=new' },
-  { label: "Men's",       to: '/shop?cat=men',       mega: true },
-  { label: "Women's",     to: '/shop?cat=women',     mega: true },
+  { label: "Men's",       to: '/shop?cat=men',        mega: true },
+  { label: "Women's",     to: '/shop?cat=women',      mega: true },
   { label: 'Footwear',    to: '/shop?cat=footwear' },
   { label: 'Accessories', to: '/shop?cat=accessories' },
-  { label: 'Sale',        to: '/shop?tag=Sale',      sale: true },
+  { label: 'Sale',        to: '/shop?cat=sale',        sale: true },
 ];
 
 export default function Navbar() {
-  const [scrolled,    setScrolled]    = useState(false);
-  const [mobileOpen,  setMobileOpen]  = useState(false);
-  const [searchOpen,  setSearchOpen]  = useState(false);
-  const [searchVal,   setSearchVal]   = useState('');
-  const [activeMenu,  setActiveMenu]  = useState(null);
-  const location  = useLocation();
-  const navigate  = useNavigate();
-  const { cart, user, setCartOpen, setFilters } = useStore();
+  const [scrolled,   setScrolled]   = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchVal,  setSearchVal]  = useState('');
+  const [activeMenu, setActiveMenu] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { cart, user, setCartOpen } = useStore();
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const timer = useRef(null);
 
@@ -70,12 +70,15 @@ export default function Navbar() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchVal.trim()) {
-      setFilters({ search: searchVal });
-      navigate('/shop');
+      navigate(`/shop?q=${encodeURIComponent(searchVal.trim())}`);
       setSearchOpen(false);
       setSearchVal('');
     }
   };
+
+  const avatarLetter = user
+    ? (user.first_name || user.email || 'U')[0].toUpperCase()
+    : null;
 
   return (
     <>
@@ -86,7 +89,6 @@ export default function Navbar() {
 
       <nav className={`navbar${scrolled ? ' scrolled' : ''}`}>
         <div className="navbar-inner">
-          {/* Logo */}
           <Link to="/" className="navbar-logo">LUXE</Link>
 
           {/* Desktop nav */}
@@ -98,10 +100,7 @@ export default function Navbar() {
                 onMouseEnter={() => item.mega && openMenu(item.label)}
                 onMouseLeave={() => item.mega && closeMenu()}
               >
-                <Link
-                  to={item.to}
-                  className={`nav-link flex items-center gap-0.5${item.sale ? ' sale' : ''}`}
-                >
+                <Link to={item.to} className={`nav-link flex items-center gap-0.5${item.sale ? ' sale' : ''}`}>
                   {item.label}
                   {item.mega && <ChevronDown size={12} className="opacity-40 mt-0.5" />}
                 </Link>
@@ -132,7 +131,7 @@ export default function Navbar() {
 
             <Link to={user ? '/profile' : '/login'} className="navbar-icon-btn">
               {user
-                ? <div className="navbar-user-avatar">{user.avatar}</div>
+                ? <div className="navbar-user-avatar">{avatarLetter}</div>
                 : <User size={18} />}
             </Link>
 
@@ -168,7 +167,6 @@ export default function Navbar() {
                     <p className="mega-featured-title">{megaMenus[activeMenu].featured.label}</p>
                   </div>
                 </Link>
-
                 <div className="col-span-5 grid grid-cols-3 gap-4">
                   {megaMenus[activeMenu].links.map((link) => (
                     <Link key={link.label} to={link.to} onClick={() => setActiveMenu(null)} className="mega-sub-link">
@@ -189,30 +187,20 @@ export default function Navbar() {
           <div className="mobile-menu">
             <div className="mobile-menu-inner">
               {navItems.map((item) => (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  className={`mobile-nav-link${item.sale ? ' sale' : ''}`}
-                >
+                <Link key={item.label} to={item.to} className={`mobile-nav-link${item.sale ? ' sale' : ''}`}>
                   {item.label}
                 </Link>
               ))}
-              <div className="mobile-sub-section">
-                <p className="mobile-sub-title">Men's</p>
-                <div className="mobile-sub-grid">
-                  {megaMenus["Men's"].links.map((link) => (
-                    <Link key={link.label} to={link.to} className="mobile-sub-link">{link.label}</Link>
-                  ))}
+              {["Men's", "Women's"].map((cat) => (
+                <div key={cat} className="mobile-sub-section">
+                  <p className="mobile-sub-title">{cat}</p>
+                  <div className="mobile-sub-grid">
+                    {megaMenus[cat].links.map((link) => (
+                      <Link key={link.label} to={link.to} className="mobile-sub-link">{link.label}</Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              <div className="mobile-sub-section" style={{ borderTop: '1px solid var(--border)' }}>
-                <p className="mobile-sub-title">Women's</p>
-                <div className="mobile-sub-grid">
-                  {megaMenus["Women's"].links.map((link) => (
-                    <Link key={link.label} to={link.to} className="mobile-sub-link">{link.label}</Link>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}

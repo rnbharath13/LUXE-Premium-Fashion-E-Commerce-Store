@@ -22,6 +22,7 @@
   height: 100%;
   display: flex;
   align-items: center;
+  padding-bottom: 5rem;
   transition: opacity 0.4s ease;
 }
 .hero-content.fade-in  { opacity: 1; }
@@ -172,7 +173,7 @@
 .editorial-section { display: grid; min-height: 480px; }
 @media (min-width: 768px) { .editorial-section { grid-template-columns: repeat(2, 1fr); } }
 
-.editorial-panel { position: relative; overflow: hidden; min-height: 340px; }
+.editorial-panel { position: relative; overflow: hidden; min-height: 420px; }
 .editorial-panel img { width: 100%; height: 100%; object-fit: cover; }
 
 .editorial-overlay {
@@ -181,7 +182,7 @@
   background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%);
 }
 
-.editorial-content { position: absolute; bottom: 2rem; left: 2rem; right: 2rem; }
+.editorial-content { position: absolute; bottom: 2rem; left: 2rem; right: 2rem; padding-bottom: 0.5rem; }
 .editorial-tag   { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent-gold); margin-bottom: 0.5rem; }
 .editorial-title { font-size: 1.875rem; font-weight: 700; font-family: var(--font-serif); color: var(--color-white); margin-bottom: 1rem; }
 .editorial-desc  { font-size: 0.875rem; color: rgba(255,255,255,0.8); margin-bottom: 1.5rem; }

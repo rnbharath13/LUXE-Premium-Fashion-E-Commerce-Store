@@ -56,14 +56,14 @@ export default function Login() {
               <label className="auth-label">Email Address</label>
               <div className="auth-input-wrap">
                 <Mail size={15} className="auth-input-icon" />
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field pl-10" placeholder="you@example.com" />
+                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field" placeholder="you@example.com" />
               </div>
             </div>
             <div>
               <label className="auth-label">Password</label>
               <div className="auth-input-wrap">
                 <Lock size={15} className="auth-input-icon" />
-                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pl-10 pr-10" placeholder="••••••••" />
+                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pr-10" placeholder="••••••••" />
                 <button type="button" className="auth-input-icon-right" onClick={() => setShowPwd(!showPwd)}>
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>

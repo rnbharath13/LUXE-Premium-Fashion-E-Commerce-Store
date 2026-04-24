@@ -7,11 +7,13 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-import authRoutes     from './routes/auth.js';
-import productRoutes  from './routes/products.js';
-import categoryRoutes from './routes/categories.js';
-import orderRoutes    from './routes/orders.js';
-import wishlistRoutes from './routes/wishlist.js';
+import authRoutes        from './routes/auth.js';
+import productRoutes     from './routes/products.js';
+import categoryRoutes    from './routes/categories.js';
+import subcategoryRoutes from './routes/subcategories.js';
+import orderRoutes       from './routes/orders.js';
+import wishlistRoutes    from './routes/wishlist.js';
+import uploadRoutes      from './routes/upload.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -40,11 +42,13 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
 
 // Routes
-app.use('/api/auth',       authRoutes);
-app.use('/api/products',   productRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/orders',     orderRoutes);
-app.use('/api/wishlist',   wishlistRoutes);
+app.use('/api/auth',          authRoutes);
+app.use('/api/products',      productRoutes);
+app.use('/api/categories',    categoryRoutes);
+app.use('/api/subcategories', subcategoryRoutes);
+app.use('/api/orders',        orderRoutes);
+app.use('/api/wishlist',      wishlistRoutes);
+app.use('/api/upload',        uploadRoutes);
 
 // Error handling
 app.use(notFound);
