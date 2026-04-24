@@ -1,16 +1,23 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Truck, CheckCircle, Clock, ArrowRight, ShoppingBag } from 'lucide-react';
 import useStore from '../../store/useStore';
 import './Orders.css';
 
 const statusConfig = {
-  Delivered: { icon: CheckCircle, cls: 'order-status-delivered' },
-  Processing: { icon: Clock,       cls: 'order-status-processing' },
-  Shipped:    { icon: Truck,       cls: 'order-status-shipped'    },
+  delivered:  { icon: CheckCircle, cls: 'order-status-delivered' },
+  processing: { icon: Clock,       cls: 'order-status-processing' },
+  shipped:    { icon: Truck,       cls: 'order-status-shipped'    },
+  pending:    { icon: Clock,       cls: 'order-status-processing' },
+  cancelled:  { icon: Package,     cls: 'order-status-processing' },
 };
 
 export default function Orders() {
-  const { user, orders } = useStore();
+  const { user, orders, fetchOrders } = useStore();
+
+  useEffect(() => {
+    if (user) fetchOrders();
+  }, [user]);
 
   if (!user) return (
     <div className="orders-unauthenticated">
@@ -38,31 +45,31 @@ export default function Orders() {
         ) : (
           <div className="space-y-3">
             {orders.map((order) => {
-              const cfg        = statusConfig[order.status] || statusConfig.Processing;
+              const cfg        = statusConfig[order.status?.toLowerCase()] || statusConfig.pending;
               const StatusIcon = cfg.icon;
+              const itemCount  = order.order_items?.length || 0;
               return (
                 <div key={order.id} className="order-card">
                   <div className="order-card-header">
                     <div>
                       <div className="flex items-center">
-                        <h3 className="order-id">{order.id}</h3>
+                        <h3 className="order-id">{order.order_number}</h3>
                         <span className={`order-status-badge ${cfg.cls}`}>
                           <StatusIcon size={11} /> {order.status}
                         </span>
                       </div>
                       <p className="order-date">
-                        Placed on {new Date(order.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        Placed on {new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </p>
                     </div>
-                    <span className="order-total">${order.total.toFixed(2)}</span>
+                    <span className="order-total">${Number(order.total).toFixed(2)}</span>
                   </div>
                   <div className="order-card-footer">
                     <div className="order-meta">
-                      <span className="order-meta-item"><Package size={13} /> {order.items} item{order.items !== 1 ? 's' : ''}</span>
-                      {order.tracking && <span className="order-meta-item"><Truck size={13} /> {order.tracking}</span>}
+                      <span className="order-meta-item"><Package size={13} /> {itemCount} item{itemCount !== 1 ? 's' : ''}</span>
                     </div>
                     <Link to="/shop" className="order-reorder-btn">
-                      Reorder <ArrowRight size={13} />
+                      Shop Again <ArrowRight size={13} />
                     </Link>
                   </div>
                 </div>

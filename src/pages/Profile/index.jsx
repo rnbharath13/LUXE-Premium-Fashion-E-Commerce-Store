@@ -1,12 +1,17 @@
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, Package, Heart, Settings, LogOut, ChevronRight, Pen } from 'lucide-react';
+import { User, Package, Heart, Settings, LogOut, ChevronRight } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ProductCard from '../../components/ProductCard';
 import './Profile.css';
 
 export default function Profile() {
-  const { user, logout, wishlist, orders } = useStore();
+  const { user, logout, wishlist, orders, fetchOrders } = useStore();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) fetchOrders();
+  }, [user]);
 
   const handleLogout = () => { logout(); navigate('/'); };
 
@@ -26,30 +31,34 @@ export default function Profile() {
     </div>
   );
 
+  const firstName  = user.first_name || user.email?.split('@')[0] || 'Member';
+  const lastName   = user.last_name || '';
+  const avatar     = firstName[0]?.toUpperCase() || 'L';
+  const memberYear = new Date(user.created_at || Date.now()).getFullYear();
+
   const stats = [
     { label: 'Orders',       value: orders.length  },
     { label: 'Wishlist',     value: wishlist.length },
-    { label: 'Member Since', value: '2026'          },
+    { label: 'Member Since', value: memberYear      },
   ];
 
   const menuItems = [
-    { icon: Package,  label: 'My Orders',       desc: `${orders.length} orders`,          to: '/orders'  },
-    { icon: Heart,    label: 'Wishlist',         desc: `${wishlist.length} saved items`,   to: '/profile' },
-    { icon: Settings, label: 'Account Settings', desc: 'Manage your account',             to: '/profile' },
+    { icon: Package,  label: 'My Orders',       desc: `${orders.length} orders`,         to: '/orders'  },
+    { icon: Heart,    label: 'Saved Items',      desc: `${wishlist.length} saved items`,  to: '/profile' },
+    { icon: Settings, label: 'Account Settings', desc: 'Manage your account',            to: '/profile' },
   ];
 
   return (
     <div className="profile-page animate-fade-in">
       <div className="profile-page-inner">
-        {/* Header card */}
+        {/* Header */}
         <div className="profile-header">
           <div className="profile-header-row">
-            <div className="profile-avatar">{user.avatar}</div>
+            <div className="profile-avatar">{avatar}</div>
             <div className="flex-1">
-              <h1 className="profile-name">{user.name || 'LUXE Member'}</h1>
+              <h1 className="profile-name">{firstName} {lastName}</h1>
               <p className="profile-email">{user.email}</p>
             </div>
-            <button className="profile-edit-btn"><Pen size={15} /></button>
           </div>
           <div className="profile-stats">
             {stats.map(({ label, value }) => (
@@ -79,7 +88,7 @@ export default function Profile() {
           </button>
         </div>
 
-        {/* Wishlist */}
+        {/* Wishlist preview */}
         {wishlist.length > 0 && (
           <div>
             <h2 className="profile-wishlist-title">Wishlist</h2>

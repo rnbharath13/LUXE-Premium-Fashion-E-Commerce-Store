@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, Search, Grid3X3, LayoutList } from 'lucide-react';
-import { products } from '../../data/products';
+import { api, normalizeProduct } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import useStore from '../../store/useStore';
 import './Shop.css';
@@ -23,6 +23,8 @@ export default function Shop() {
   const [gridView,    setGridView]    = useState(true);
   const [localSearch, setLocalSearch] = useState(filters.search || '');
   const [priceRange,  setPriceRange]  = useState([0, 500]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading,     setLoading]     = useState(true);
 
   useEffect(() => {
     const cat = searchParams.get('cat');
@@ -35,8 +37,16 @@ export default function Shop() {
     if (q)   setFilters({ search: q });
   }, [searchParams]);
 
+  useEffect(() => {
+    setLoading(true);
+    api.get('/products?limit=200')
+      .then(({ products }) => setAllProducts((products || []).map(normalizeProduct)))
+      .catch(() => setAllProducts([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   const filtered = useMemo(() => {
-    let list = [...products];
+    let list = [...allProducts];
     if (filters.category && filters.category !== 'all')
       list = list.filter((p) => p.category === filters.category);
     if (filters.search)
@@ -44,11 +54,11 @@ export default function Shop() {
     if (filters.tags?.length)
       list = list.filter((p) => filters.tags.some((t) => p.tags.includes(t)));
     list = list.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
-    if (filters.sortBy === 'price-asc')  list.sort((a, b) => a.price - b.price);
+    if (filters.sortBy === 'price-asc')       list.sort((a, b) => a.price - b.price);
     else if (filters.sortBy === 'price-desc') list.sort((a, b) => b.price - a.price);
     else if (filters.sortBy === 'rating')     list.sort((a, b) => b.rating - a.rating);
     return list;
-  }, [filters, priceRange]);
+  }, [filters, priceRange, allProducts]);
 
   const handleSearch = (e) => { e.preventDefault(); setFilters({ search: localSearch }); };
   const toggleTag    = (tag) => {
@@ -161,7 +171,11 @@ export default function Shop() {
         )}
 
         {/* Products */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="shop-empty">
+            <p className="shop-empty-title">Loading products...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="shop-empty">
             <p className="shop-empty-icon">🔍</p>
             <p className="shop-empty-title">No products found</p>

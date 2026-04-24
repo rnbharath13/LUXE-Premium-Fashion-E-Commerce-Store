@@ -7,21 +7,46 @@ import './Checkout.css';
 const STEPS = ['Shipping', 'Payment', 'Review'];
 
 export default function Checkout() {
-  const [step,    setStep]    = useState(0);
-  const [placing, setPlacing] = useState(false);
-  const [placed,  setPlaced]  = useState(false);
-  const { cart, clearCart }   = useStore();
+  const [step,      setStep]      = useState(0);
+  const [placing,   setPlacing]   = useState(false);
+  const [placed,    setPlaced]    = useState(false);
+  const [orderNum,  setOrderNum]  = useState('');
+  const [error,     setError]     = useState('');
+  const { cart, user, placeOrder, showToast } = useStore();
   const total      = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const shipping   = total > 150 ? 0 : 9.99;
   const tax        = total * 0.08;
   const grandTotal = total + shipping + tax;
 
-  const [shippingInfo, setShippingInfo] = useState({ firstName: '', lastName: '', email: '', address: '', city: '', zip: '' });
+  const [shippingInfo, setShippingInfo] = useState({ firstName: '', lastName: '', email: user?.email || '', address: '', city: '', zip: '' });
   const [payment,      setPayment]      = useState({ cardName: '', cardNumber: '', expiry: '', cvv: '' });
 
-  const handlePlace = () => {
+  const handlePlace = async () => {
     setPlacing(true);
-    setTimeout(() => { clearCart(); setPlaced(true); setPlacing(false); }, 2000);
+    setError('');
+    try {
+      const items = cart.map(i => ({
+        productId: i.id,
+        quantity:  i.quantity,
+        price:     i.price,
+        size:      i.selectedSize,
+        color:     i.selectedColor,
+      }));
+      const result = await placeOrder({
+        items,
+        shippingAddress: shippingInfo,
+        billingAddress:  shippingInfo,
+        paymentMethod:   'card',
+        total:           parseFloat(grandTotal.toFixed(2)),
+      });
+      setOrderNum(result.orderNumber);
+      setPlaced(true);
+    } catch (err) {
+      setError(err.message || 'Order failed. Please try again.');
+      showToast('Order failed', 'error');
+    } finally {
+      setPlacing(false);
+    }
   };
 
   if (placed) return (
@@ -32,7 +57,7 @@ export default function Checkout() {
         </div>
         <h1 className="checkout-success-title">Order Placed!</h1>
         <p className="checkout-success-desc">Thank you for your purchase. Your order has been confirmed.</p>
-        <p className="checkout-success-order-id">#ORD-{Math.floor(Math.random() * 9000 + 1000)}</p>
+        <p className="checkout-success-order-id">#{orderNum}</p>
         <div className="space-y-3">
           <Link to="/orders" className="btn-primary w-full justify-center">View Orders <ArrowRight size={16} /></Link>
           <Link to="/"       className="btn-ghost  w-full justify-center">Continue Shopping</Link>
@@ -159,6 +184,7 @@ export default function Checkout() {
                       </div>
                     ))}
                   </div>
+                  {error && <p className="auth-error mt-2">{error}</p>}
                   <div className="flex gap-3">
                     <button className="btn-ghost flex-1 justify-center" onClick={() => setStep(1)}><ArrowLeft size={15} /> Back</button>
                     <button className="btn-primary flex-1 justify-center" onClick={handlePlace} disabled={placing}>

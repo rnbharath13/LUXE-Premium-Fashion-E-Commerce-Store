@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Truck, RotateCcw, Shield, Star, ChevronLeft, ChevronRight } from 'lucide-react';
-import { products } from '../../data/products';
+import { api, normalizeProduct } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import './Home.css';
 
@@ -44,10 +44,17 @@ export default function Home() {
   const [slide,          setSlide]          = useState(0);
   const [activeCategory, setActiveCategory] = useState('all');
   const [fade,           setFade]           = useState(true);
+  const [allProducts,    setAllProducts]    = useState([]);
 
   const filtered = activeCategory === 'all'
-    ? products.slice(0, 8)
-    : products.filter((p) => p.category === activeCategory).slice(0, 8);
+    ? allProducts.slice(0, 8)
+    : allProducts.filter((p) => p.category === activeCategory).slice(0, 8);
+
+  useEffect(() => {
+    api.get('/products?limit=50')
+      .then(({ products }) => setAllProducts((products || []).map(normalizeProduct)))
+      .catch(() => setAllProducts([]));
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => {

@@ -12,16 +12,20 @@ export default function Login() {
   const { login, showToast }  = useStore();
   const navigate              = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) { setError('Please fill in all fields'); return; }
     setLoading(true);
-    setTimeout(() => {
-      login({ email: form.email, name: form.email.split('@')[0].replace(/[^a-zA-Z]/g, ' ').trim() });
+    setError('');
+    try {
+      await login(form.email, form.password);
       showToast('Welcome back!');
       navigate('/profile');
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

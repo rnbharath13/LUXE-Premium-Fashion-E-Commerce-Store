@@ -1,23 +1,45 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Heart, ShoppingBag, Truck, RotateCcw, Shield, ChevronRight } from 'lucide-react';
-import { getProductById, getRelatedProducts } from '../../data/products';
+import { api, normalizeProduct } from '../../lib/api';
 import ProductCard from '../../components/ProductCard';
 import useStore from '../../store/useStore';
 import './ProductDetails.css';
 
 export default function ProductDetails() {
-  const { id }      = useParams();
-  const product     = getProductById(id);
+  const { id } = useParams();
   const { addToCart, setCartOpen, toggleWishlist, isWishlisted, showToast } = useStore();
+  const [product,       setProduct]      = useState(null);
+  const [related,       setRelated]      = useState([]);
+  const [loading,       setLoading]      = useState(true);
   const [selectedSize,  setSelectedSize]  = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity,      setQuantity]      = useState(1);
   const [activeTab,     setActiveTab]     = useState('description');
 
   useEffect(() => {
-    if (product) { setSelectedSize(product.sizes[0]); setSelectedColor(product.colors[0]); window.scrollTo(0, 0); }
-  }, [id, product]);
+    setLoading(true);
+    window.scrollTo(0, 0);
+    Promise.all([
+      api.get(`/products/${id}`),
+      api.get(`/products/${id}/related`),
+    ])
+      .then(([prod, rel]) => {
+        const p = normalizeProduct(prod);
+        setProduct(p);
+        setRelated((rel || []).map(normalizeProduct));
+        setSelectedSize(p.sizes[0] || '');
+        setSelectedColor(p.colors[0] || '');
+      })
+      .catch(() => setProduct(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return (
+    <div className="pd-not-found">
+      <div className="pd-not-found-inner"><p className="pd-not-found-title">Loading...</p></div>
+    </div>
+  );
 
   if (!product) return (
     <div className="pd-not-found">
@@ -28,18 +50,11 @@ export default function ProductDetails() {
     </div>
   );
 
-  const related    = getRelatedProducts(product);
   const wishlisted = isWishlisted(product.id);
 
-  const sizePremium    = { XS: 0, S: 0, M: 0, L: 0.03, XL: 0.06, XXL: 0.10, XXXL: 0.15 };
-  const shoePremium    = { '35': 0, '36': 0, '37': 0, '38': 0, '39': 0, '40': 0, '41': 0.02, '42': 0.04, '43': 0.06, '44': 0.08, '45': 0.10, '46': 0.12 };
-  const trouserPremium = { '28': 0, '30': 0, '32': 0.03, '34': 0.05, '36': 0.08, '38': 0.10 };
-
   const getSizeMultiplier = (size) => {
-    if (sizePremium[size]    !== undefined) return sizePremium[size];
-    if (shoePremium[size]    !== undefined) return shoePremium[size];
-    if (trouserPremium[size] !== undefined) return trouserPremium[size];
-    return 0;
+    const variant = product.variants?.find(v => v.size === size);
+    return variant?.price_modifier ? Number(variant.price_modifier) : 0;
   };
 
   const sizeMultiplier = getSizeMultiplier(selectedSize);

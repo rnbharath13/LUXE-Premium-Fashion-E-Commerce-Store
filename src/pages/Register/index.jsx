@@ -9,8 +9,9 @@ export default function Register() {
   const [form,    setForm]    = useState({ name: '', email: '', password: '', confirm: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login, showToast }  = useStore();
-  const navigate              = useNavigate();
+  const [error,   setError]   = useState('');
+  const { register, showToast } = useStore();
+  const navigate                = useNavigate();
 
   const perks = [
     'Free shipping on first order',
@@ -19,16 +20,22 @@ export default function Register() {
     'Easy returns & exchanges',
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (form.password !== form.confirm) { showToast('Passwords do not match', 'error'); return; }
+    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
     setLoading(true);
-    setTimeout(() => {
-      login({ email: form.email, name: form.name || form.email.split('@')[0] });
-      showToast('Account created! Welcome to LUXE');
+    setError('');
+    try {
+      const [firstName, ...rest] = (form.name || '').trim().split(' ');
+      await register(form.email, form.password, firstName, rest.join(' '));
+      showToast('Account created! Welcome to LUXE 🎉');
       navigate('/profile');
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -61,6 +68,8 @@ export default function Register() {
             <h1 className="auth-form-title">Create Account</h1>
             <p className="auth-form-subtitle">Unlock a world of premium fashion</p>
           </div>
+
+          {error && <div className="auth-error">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {[
