@@ -1,23 +1,45 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const getToken = () => {
-  try {
-    return JSON.parse(localStorage.getItem('luxe-store'))?.state?.token || null;
-  } catch {
-    return null;
-  }
+// Access token lives in module memory — never localStorage
+let _accessToken = null;
+
+export const setAccessToken = (t) => { _accessToken = t; };
+export const getAccessToken = () => _accessToken;
+export const clearAccessToken = () => { _accessToken = null; };
+
+// Silently refresh the access token using the httpOnly refresh cookie
+let _refreshPromise = null;
+
+const refreshAccessToken = () => {
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = fetch(`${BASE}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include', // sends the httpOnly refresh cookie
+  })
+    .then((res) => (res.ok ? res.json() : Promise.reject()))
+    .then(({ token }) => { _accessToken = token; })
+    .catch(() => { _accessToken = null; })
+    .finally(() => { _refreshPromise = null; });
+  return _refreshPromise;
 };
 
-const request = async (path, options = {}) => {
-  const token = getToken();
+const request = async (path, options = {}, retry = true) => {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
+    credentials: 'include', // always send cookies (refresh token)
     headers: {
       'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(_accessToken && { Authorization: `Bearer ${_accessToken}` }),
       ...options.headers,
     },
   });
+
+  // Access token expired — try one silent refresh then replay
+  if (res.status === 401 && retry) {
+    await refreshAccessToken();
+    if (_accessToken) return request(path, options, false);
+  }
+
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
   return data;

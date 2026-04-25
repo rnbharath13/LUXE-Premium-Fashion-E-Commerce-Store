@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { api } from '../lib/api';
+import { api, setAccessToken, clearAccessToken } from '../lib/api';
 
 const useStore = create(
   persist(
     (set, get) => ({
 
-      // ── Cart ────────────────────────────────────────────────────
+      // ── Cart ─────────────────────────────────────────────────────
       cart: [],
       cartOpen: false,
 
@@ -54,7 +54,7 @@ const useStore = create(
       get cartCount() { return get().cart.reduce((sum, i) => sum + i.quantity, 0); },
       get cartTotal() { return get().cart.reduce((sum, i) => sum + i.price * i.quantity, 0); },
 
-      // ── Wishlist (local, syncs to backend when logged in) ───────
+      // ── Wishlist ──────────────────────────────────────────────────
       wishlist: [],
 
       toggleWishlist: async (product) => {
@@ -74,7 +74,6 @@ const useStore = create(
               await api.post('/wishlist', { productId: product.id });
             }
           } catch {
-            // revert on error
             set({ wishlist });
             showToast('Wishlist update failed', 'error');
           }
@@ -83,25 +82,22 @@ const useStore = create(
 
       isWishlisted: (id) => get().wishlist.some(p => p.id === id),
 
-      // ── Auth ─────────────────────────────────────────────────────
-      user:  null,
-      token: null,
+      // ── Auth ──────────────────────────────────────────────────────
+      // user persisted to localStorage (non-sensitive profile data only)
+      // access token lives in module memory — never persisted
+      user: null,
 
       login: async (email, password) => {
         const data = await api.post('/auth/login', { email, password });
-        set({
-          user:  data.user,
-          token: data.token,
-        });
+        setAccessToken(data.token);
+        set({ user: data.user });
         return data;
       },
 
       register: async (email, password, firstName, lastName) => {
         const data = await api.post('/auth/register', { email, password, firstName, lastName });
-        set({
-          user:  data.user,
-          token: data.token,
-        });
+        setAccessToken(data.token);
+        set({ user: data.user });
         return data;
       },
 
@@ -111,9 +107,17 @@ const useStore = create(
         return data;
       },
 
-      logout: () => set({ user: null, token: null, cart: [], wishlist: [] }),
+      logout: async () => {
+        try {
+          await api.post('/auth/logout');
+        } catch {
+          // best-effort — clear client state regardless
+        }
+        clearAccessToken();
+        set({ user: null, cart: [], wishlist: [] });
+      },
 
-      // ── Orders ───────────────────────────────────────────────────
+      // ── Orders ────────────────────────────────────────────────────
       orders: [],
 
       fetchOrders: async () => {
@@ -147,7 +151,8 @@ const useStore = create(
     }),
     {
       name: 'luxe-store',
-      partialize: (state) => ({ cart: state.cart, wishlist: state.wishlist, user: state.user, token: state.token }),
+      // token intentionally excluded — lives in memory only
+      partialize: (state) => ({ cart: state.cart, wishlist: state.wishlist, user: state.user }),
     }
   )
 );

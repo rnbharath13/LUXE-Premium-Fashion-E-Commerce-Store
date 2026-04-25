@@ -22,8 +22,10 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirm) { showToast('Passwords do not match', 'error'); return; }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (form.password !== form.confirm) { setError('Passwords do not match'); return; }
+    if (form.password.length < 8)          { setError('Password must be at least 8 characters'); return; }
+    if (!/[A-Z]/.test(form.password))      { setError('Password must contain at least one uppercase letter'); return; }
+    if (!/[0-9]/.test(form.password))      { setError('Password must contain at least one number'); return; }
     setLoading(true);
     setError('');
     try {
@@ -43,7 +45,7 @@ export default function Register() {
       {/* Left editorial */}
       <div className="auth-editorial">
         <div className="register-editorial-img">
-          <img src="https://images.unsplash.com/photo-1506634861428-a6d74f3a5073?auto=format&fit=crop&w=900&q=85" alt="Join LUXE" />
+          <img src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=900&q=85" alt="Join LUXE" />
         </div>
         <div className="register-editorial-overlay" />
         <div className="register-editorial-content">
