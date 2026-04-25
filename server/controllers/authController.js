@@ -1,39 +1,56 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
 import { supabase } from '../config/supabase.js';
 
-const signToken = (userId, email) =>
-  jwt.sign({ userId, email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// ── Token helpers ────────────────────────────────────────────
+
+const signAccess = (userId, email) =>
+  jwt.sign({ userId, email }, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+const signRefresh = (userId) =>
+  jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+const REFRESH_COOKIE = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  path: '/api/auth',
+};
+
+// ── Register ─────────────────────────────────────────────────
 
 export const register = async (req, res, next) => {
   try {
     const { email, password, firstName, lastName } = req.body;
-
-    const { data: existing } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single();
-
-    if (existing) return res.status(409).json({ error: 'Email already registered' });
-
     const passwordHash = await bcrypt.hash(password, 10);
-    const id = randomUUID();
 
     const { data: user, error } = await supabase
       .from('users')
-      .insert([{ id, email, password_hash: passwordHash, first_name: firstName || '', last_name: lastName || '' }])
+      .insert([{
+        email,
+        password_hash: passwordHash,
+        first_name: firstName ?? '',
+        last_name:  lastName  ?? '',
+      }])
       .select('id, email, first_name, last_name')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: 'Email already registered' });
+      }
+      throw error;
+    }
 
-    res.status(201).json({ user, token: signToken(user.id, user.email) });
+    res.cookie('refreshToken', signRefresh(user.id), REFRESH_COOKIE);
+    res.status(201).json({ user, token: signAccess(user.id, user.email) });
   } catch (err) {
     next(err);
   }
 };
+
+// ── Login ────────────────────────────────────────────────────
 
 export const login = async (req, res, next) => {
   try {
@@ -45,17 +62,44 @@ export const login = async (req, res, next) => {
       .eq('email', email)
       .single();
 
+    // Same error message for "not found" and "wrong password" — prevents user enumeration
     if (error || !user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(401).json({ error: 'Invalid credentials' });
 
     const { password_hash, ...userData } = user;
-    res.json({ user: userData, token: signToken(user.id, user.email) });
+
+    res.cookie('refreshToken', signRefresh(user.id), REFRESH_COOKIE);
+    res.json({ user: userData, token: signAccess(user.id, user.email) });
   } catch (err) {
     next(err);
   }
 };
+
+// ── Refresh access token ─────────────────────────────────────
+
+export const refreshToken = (req, res) => {
+  const token = req.cookies?.refreshToken;
+  if (!token) return res.status(401).json({ error: 'No refresh token' });
+
+  try {
+    const { userId } = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    res.json({ token: signAccess(userId) });
+  } catch {
+    res.clearCookie('refreshToken', REFRESH_COOKIE);
+    res.status(401).json({ error: 'Refresh token expired, please login again' });
+  }
+};
+
+// ── Logout ───────────────────────────────────────────────────
+
+export const logout = (req, res) => {
+  res.clearCookie('refreshToken', REFRESH_COOKIE);
+  res.json({ message: 'Logged out successfully' });
+};
+
+// ── Get profile ──────────────────────────────────────────────
 
 export const getProfile = async (req, res, next) => {
   try {
@@ -73,13 +117,20 @@ export const getProfile = async (req, res, next) => {
   }
 };
 
+// ── Update profile ───────────────────────────────────────────
+
 export const updateProfile = async (req, res, next) => {
   try {
     const { firstName, lastName, phone } = req.body;
 
     const { data, error } = await supabase
       .from('users')
-      .update({ first_name: firstName, last_name: lastName, phone, updated_at: new Date().toISOString() })
+      .update({
+        first_name: firstName,
+        last_name:  lastName,
+        phone,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', req.user.userId)
       .select('id, email, first_name, last_name, phone')
       .single();
