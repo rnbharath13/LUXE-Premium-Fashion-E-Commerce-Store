@@ -32,7 +32,7 @@ export default function Register() {
       const [firstName, ...rest] = (form.name || '').trim().split(' ');
       await register(form.email, form.password, firstName, rest.join(' '));
       showToast('Account created! Welcome to LUXE 🎉');
-      navigate('/profile');
+      navigate('/');
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {

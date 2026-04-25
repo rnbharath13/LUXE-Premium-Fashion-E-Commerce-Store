@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, Search, Menu, X, ChevronDown } from 'lucide-react';
+import { ShoppingBag, User, Search, Menu, X, ChevronDown, LogOut } from 'lucide-react';
 import useStore from '../../store/useStore';
 import './Navbar.css';
 
@@ -45,10 +45,12 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchVal,  setSearchVal]  = useState('');
-  const [activeMenu, setActiveMenu] = useState(null);
+  const [activeMenu,   setActiveMenu]   = useState(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { cart, user, setCartOpen } = useStore();
+  const { cart, user, logout, setCartOpen } = useStore();
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const timer = useRef(null);
 
@@ -62,7 +64,20 @@ export default function Navbar() {
     setMobileOpen(false);
     setSearchOpen(false);
     setActiveMenu(null);
+    setUserMenuOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const openMenu  = (label) => { clearTimeout(timer.current); setActiveMenu(label); };
   const closeMenu = ()      => { timer.current = setTimeout(() => setActiveMenu(null), 150); };
@@ -129,11 +144,27 @@ export default function Navbar() {
               </button>
             )}
 
-            <Link to={user ? '/profile' : '/login'} className="navbar-icon-btn">
-              {user
-                ? <div className="navbar-user-avatar">{avatarLetter}</div>
-                : <User size={18} />}
-            </Link>
+            {user ? (
+              <div className="navbar-user-menu-wrap" ref={userMenuRef}>
+                <button className="navbar-icon-btn" onClick={() => setUserMenuOpen(!userMenuOpen)}>
+                  <div className="navbar-user-avatar">{avatarLetter}</div>
+                </button>
+                {userMenuOpen && (
+                  <div className="navbar-user-dropdown">
+                    <Link to="/profile" className="navbar-user-dropdown-item">
+                      <User size={14} /> Profile
+                    </Link>
+                    <button className="navbar-user-dropdown-item navbar-user-dropdown-logout" onClick={handleLogout}>
+                      <LogOut size={14} /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/login" className="navbar-icon-btn">
+                <User size={18} />
+              </Link>
+            )}
 
             <button className="navbar-icon-btn" onClick={() => setCartOpen(true)}>
               <ShoppingBag size={18} />
@@ -201,6 +232,21 @@ export default function Navbar() {
                   </div>
                 </div>
               ))}
+              <div className="mobile-sub-section" style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                {user ? (
+                  <>
+                    <Link to="/profile" className="mobile-nav-link">My Account</Link>
+                    <button className="mobile-nav-link" style={{ color: '#e53e3e', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }} onClick={handleLogout}>
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login"    className="mobile-nav-link">Sign In</Link>
+                    <Link to="/register" className="mobile-nav-link">Create Account</Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

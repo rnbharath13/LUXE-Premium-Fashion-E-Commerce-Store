@@ -20,7 +20,7 @@ export default function Login() {
     try {
       await login(form.email, form.password);
       showToast('Welcome back!');
-      navigate('/profile');
+      navigate('/');
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -70,23 +70,12 @@ export default function Login() {
               </div>
             </div>
             <div className="flex justify-end">
-              <button type="button" className="auth-forgot-btn">Forgot password?</button>
+              <Link to="/forgot-password" className="auth-forgot-btn">Forgot password?</Link>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full justify-center" style={{ padding: '0.875rem' }}>
               {loading ? <span className="auth-spinner" /> : <>Sign In <ArrowRight size={16} /></>}
             </button>
           </form>
-
-          <div className="auth-divider-wrap">
-            <div className="auth-divider-line"><div className="auth-divider-line-inner" /></div>
-            <div className="auth-divider-label"><span className="auth-divider-text">or continue with</span></div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {['Google', 'Apple'].map((name) => (
-              <button key={name} className="btn-ghost justify-center" style={{ padding: '0.625rem' }}>{name}</button>
-            ))}
-          </div>
 
           <p className="auth-footer-text">
             {"Don't have an account? "}

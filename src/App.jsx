@@ -13,16 +13,14 @@ import Orders from './pages/Orders';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import { setAccessToken } from './lib/api';
-
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
+import { api, setAccessToken } from './lib/api';
 
 export default function App() {
-  // On every page load, silently restore the access token from the refresh cookie.
-  // If the cookie is expired or absent this fails quietly — user stays logged out.
   useEffect(() => {
-    fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
+    api.post('/auth/refresh')
       .then((data) => { if (data?.token) setAccessToken(data.token); })
       .catch(() => {});
   }, []);
@@ -34,15 +32,18 @@ export default function App() {
       <Toast />
       <main>
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/product/:id" element={<ProductDetails />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/"                element={<Home />} />
+          <Route path="/shop"            element={<Shop />} />
+          <Route path="/product/:id"     element={<ProductDetails />} />
+          <Route path="/cart"            element={<Cart />} />
+          <Route path="/checkout"        element={<Checkout />} />
+          <Route path="/orders"          element={<Orders />} />
+          <Route path="/profile"         element={<Profile />} />
+          <Route path="/login"           element={<Login />} />
+          <Route path="/register"        element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password"  element={<ResetPassword />} />
+          <Route path="/verify-email"    element={<VerifyEmail />} />
         </Routes>
       </main>
       <Footer />

@@ -6,7 +6,7 @@ const useStore = create(
   persist(
     (set, get) => ({
 
-      // ── Cart ─────────────────────────────────────────────────────
+      // ── Cart ──────────────────────────────────────────────────────
       cart: [],
       cartOpen: false,
 
@@ -48,7 +48,7 @@ const useStore = create(
         }));
       },
 
-      clearCart: () => set({ cart: [] }),
+      clearCart:   () => set({ cart: [] }),
       setCartOpen: (open) => set({ cartOpen: open }),
 
       get cartCount() { return get().cart.reduce((sum, i) => sum + i.quantity, 0); },
@@ -61,18 +61,11 @@ const useStore = create(
         const { wishlist, user, showToast } = get();
         const exists = wishlist.find(p => p.id === product.id);
 
-        set({ wishlist: exists
-          ? wishlist.filter(p => p.id !== product.id)
-          : [...wishlist, product]
-        });
+        set({ wishlist: exists ? wishlist.filter(p => p.id !== product.id) : [...wishlist, product] });
 
         if (user) {
           try {
-            if (exists) {
-              await api.delete(`/wishlist/${product.id}`);
-            } else {
-              await api.post('/wishlist', { productId: product.id });
-            }
+            exists ? await api.delete(`/wishlist/${product.id}`) : await api.post('/wishlist', { productId: product.id });
           } catch {
             set({ wishlist });
             showToast('Wishlist update failed', 'error');
@@ -83,8 +76,6 @@ const useStore = create(
       isWishlisted: (id) => get().wishlist.some(p => p.id === id),
 
       // ── Auth ──────────────────────────────────────────────────────
-      // user persisted to localStorage (non-sensitive profile data only)
-      // access token lives in module memory — never persisted
       user: null,
 
       login: async (email, password) => {
@@ -107,14 +98,11 @@ const useStore = create(
         return data;
       },
 
-      logout: async () => {
-        try {
-          await api.post('/auth/logout');
-        } catch {
-          // best-effort — clear client state regardless
-        }
+      logout: () => {
         clearAccessToken();
         set({ user: null, cart: [], wishlist: [] });
+        // Fire-and-forget — clears the httpOnly refresh cookie server-side
+        api.post('/auth/logout').catch(() => {});
       },
 
       // ── Orders ────────────────────────────────────────────────────
@@ -143,15 +131,12 @@ const useStore = create(
       },
 
       // ── Filters ───────────────────────────────────────────────────
-      filters: {
-        search: '', category: 'all', minPrice: 0, maxPrice: 500, sortBy: 'featured', tags: [],
-      },
+      filters: { search: '', category: 'all', minPrice: 0, maxPrice: 500, sortBy: 'featured', tags: [] },
       setFilters:   (updates) => set((state) => ({ filters: { ...state.filters, ...updates } })),
       resetFilters: () => set({ filters: { search: '', category: 'all', minPrice: 0, maxPrice: 500, sortBy: 'featured', tags: [] } }),
     }),
     {
       name: 'luxe-store',
-      // token intentionally excluded — lives in memory only
       partialize: (state) => ({ cart: state.cart, wishlist: state.wishlist, user: state.user }),
     }
   )

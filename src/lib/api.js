@@ -1,21 +1,14 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Access token lives in module memory — never localStorage
 let _accessToken = null;
-
-export const setAccessToken = (t) => { _accessToken = t; };
-export const getAccessToken = () => _accessToken;
-export const clearAccessToken = () => { _accessToken = null; };
-
-// Silently refresh the access token using the httpOnly refresh cookie
 let _refreshPromise = null;
+
+export const setAccessToken   = (t) => { _accessToken = t; };
+export const clearAccessToken = ()  => { _accessToken = null; };
 
 const refreshAccessToken = () => {
   if (_refreshPromise) return _refreshPromise;
-  _refreshPromise = fetch(`${BASE}/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include', // sends the httpOnly refresh cookie
-  })
+  _refreshPromise = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
     .then((res) => (res.ok ? res.json() : Promise.reject()))
     .then(({ token }) => { _accessToken = token; })
     .catch(() => { _accessToken = null; })
@@ -24,17 +17,17 @@ const refreshAccessToken = () => {
 };
 
 const request = async (path, options = {}, retry = true) => {
+  const hasBody = options.body !== undefined;
   const res = await fetch(`${BASE}${path}`, {
     ...options,
-    credentials: 'include', // always send cookies (refresh token)
+    credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(hasBody && { 'Content-Type': 'application/json' }),
       ...(_accessToken && { Authorization: `Bearer ${_accessToken}` }),
       ...options.headers,
     },
   });
 
-  // Access token expired — try one silent refresh then replay
   if (res.status === 401 && retry) {
     await refreshAccessToken();
     if (_accessToken) return request(path, options, false);
@@ -46,14 +39,13 @@ const request = async (path, options = {}, retry = true) => {
 };
 
 export const api = {
-  get:    (path)        => request(path),
-  post:   (path, body)  => request(path, { method: 'POST',   body: JSON.stringify(body) }),
-  put:    (path, body)  => request(path, { method: 'PUT',    body: JSON.stringify(body) }),
-  patch:  (path, body)  => request(path, { method: 'PATCH',  body: JSON.stringify(body) }),
-  delete: (path)        => request(path, { method: 'DELETE' }),
+  get:    (path)       => request(path),
+  post:   (path, body) => request(path, { method: 'POST',   body: JSON.stringify(body) }),
+  put:    (path, body) => request(path, { method: 'PUT',    body: JSON.stringify(body) }),
+  patch:  (path, body) => request(path, { method: 'PATCH',  body: JSON.stringify(body) }),
+  delete: (path)       => request(path, { method: 'DELETE' }),
 };
 
-// Normalise DB product → UI product shape
 export const normalizeProduct = (p) => ({
   id:            p.id,
   name:          p.name,

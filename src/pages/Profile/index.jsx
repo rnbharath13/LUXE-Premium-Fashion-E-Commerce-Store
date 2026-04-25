@@ -13,7 +13,7 @@ export default function Profile() {
     if (user) fetchOrders();
   }, [user]);
 
-  const handleLogout = () => { logout(); navigate('/'); };
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   if (!user) return (
     <div className="profile-guest">
