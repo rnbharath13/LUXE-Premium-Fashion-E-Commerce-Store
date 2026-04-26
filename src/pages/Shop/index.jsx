@@ -6,6 +6,8 @@ import ProductCard from '../../components/ProductCard';
 import useStore from '../../store/useStore';
 import './Shop.css';
 
+const LIMIT = 24;
+
 const SORTS = [
   { value: 'featured',   label: 'Featured' },
   { value: 'price-asc',  label: 'Price: Low to High' },
@@ -31,8 +33,11 @@ export default function Shop() {
   const [localSearch, setLocalSearch] = useState('');
   const [priceRange,  setPriceRange]  = useState([0, 500]);
   const [allProducts, setAllProducts] = useState([]);
+  const [total,       setTotal]       = useState(0);
   const [loading,     setLoading]     = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [subcategory, setSubcategory] = useState('all');
+  const [skip,        setSkip]        = useState(0);
 
   useEffect(() => {
     const cat = searchParams.get('cat');
@@ -41,23 +46,45 @@ export default function Shop() {
     const q   = searchParams.get('q');
     resetFilters();
     setSubcategory(sub || 'all');
-    if (cat === 'new')  setFilters({ category: 'all', tags: ['New Arrival'] });
+    setSkip(0);
+    if (cat === 'new')       setFilters({ category: 'all', tags: ['New Arrival'] });
     else if (cat === 'sale') setFilters({ category: 'all', tags: ['Sale'] });
-    else if (cat)       setFilters({ category: cat });
+    else if (cat)            setFilters({ category: cat });
     if (tag) setFilters({ tags: [tag] });
     if (q)   { setFilters({ search: q }); setLocalSearch(q); }
   }, [searchParams]);
 
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ limit: 200 });
+  const buildParams = (extraSkip = 0) => {
+    const params = new URLSearchParams({ limit: LIMIT, skip: extraSkip });
     if (filters.category && filters.category !== 'all') params.set('category', filters.category);
     if (subcategory && subcategory !== 'all') params.set('subcategory', subcategory);
-    api.get(`/products?${params}`)
-      .then(({ products }) => setAllProducts((products || []).map(normalizeProduct)))
+    if (filters.sortBy && filters.sortBy !== 'featured') params.set('sortBy', filters.sortBy);
+    return params;
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    setSkip(0);
+    api.get(`/products?${buildParams(0)}`)
+      .then(({ products, total: t }) => {
+        setAllProducts((products || []).map(normalizeProduct));
+        setTotal(t || 0);
+      })
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
-  }, [filters.category, subcategory]);
+  }, [filters.category, subcategory, filters.sortBy]);
+
+  const loadMore = () => {
+    const nextSkip = skip + LIMIT;
+    setLoadingMore(true);
+    api.get(`/products?${buildParams(nextSkip)}`)
+      .then(({ products }) => {
+        setAllProducts(prev => [...prev, ...(products || []).map(normalizeProduct)]);
+        setSkip(nextSkip);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  };
 
   const filtered = useMemo(() => {
     let list = [...allProducts];
@@ -77,8 +104,9 @@ export default function Shop() {
     const tags = filters.tags || [];
     setFilters({ tags: tags.includes(tag) ? tags.filter((t) => t !== tag) : [...tags, tag] });
   };
-  const hasFilters   = filters.category !== 'all' || filters.search || filters.tags?.length > 0 || subcategory !== 'all';
-  const subCats      = SUB_CATS[filters.category] || null;
+  const hasFilters = filters.category !== 'all' || filters.search || filters.tags?.length > 0 || subcategory !== 'all';
+  const subCats    = SUB_CATS[filters.category] || null;
+  const hasMore    = allProducts.length < total && !filters.search && !filters.tags?.length;
 
   return (
     <div className="shop-page">
@@ -160,7 +188,7 @@ export default function Shop() {
         {/* Filter panel */}
         {showFilters && (
           <div className="shop-filter-panel">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <h3 className="shop-filter-section-title">Price Range</h3>
                 <p className="shop-price-label">${priceRange[0]} — ${priceRange[1]}</p>
@@ -218,9 +246,19 @@ export default function Shop() {
             </button>
           </div>
         ) : (
-          <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6' : 'space-y-3'}>
-            {filtered.map((p) => <ProductCard key={p.id} product={p} listView={!gridView} />)}
-          </div>
+          <>
+            <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6' : 'space-y-3'}>
+              {filtered.map((p) => <ProductCard key={p.id} product={p} listView={!gridView} />)}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center mt-10">
+                <button onClick={loadMore} disabled={loadingMore} className="btn-secondary px-10">
+                  {loadingMore ? 'Loading...' : 'Load More'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
