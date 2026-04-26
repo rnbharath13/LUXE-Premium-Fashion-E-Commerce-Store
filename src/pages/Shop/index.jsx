@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X, Search, Grid3X3, LayoutList } from 'lucide-react';
-import { api, normalizeProduct } from '../../lib/api';
+import { api } from '../../lib/api';
 import { useSeo } from '../../hooks/useSeo';
 import ProductCard from '../../components/ProductCard';
 import './Shop.css';
@@ -23,9 +23,8 @@ const SUB_CATS = {
   footwear:    ['all', 'sneakers', 'boots', 'sandals', 'formal'],
   accessories: ['all', 'bags', 'jewellery', 'belts', 'scarves'],
 };
+const EMPTY_FACETS = { brands: [], tags: [], sizes: [], colors: [], priceRange: { min: 0, max: 500 } };
 
-// ── URL <-> filter state helpers ─────────────────────────────────────────────
-// Filters live in the URL query string so back/forward, refresh, and sharing all work.
 const parseListParam = (params, key) => {
   const v = params.get(key);
   return v ? v.split(',').filter(Boolean) : [];
@@ -40,19 +39,15 @@ const readFilters = (params) => ({
   size:        parseListParam(params, 'size'),
   color:       parseListParam(params, 'color'),
   minPrice:    Number(params.get('min')) || 0,
-  maxPrice:    Number(params.get('max')) || 0, // 0 = unset
+  maxPrice:    Number(params.get('max')) || 0,
   sortBy:      params.get('sort')     || 'featured',
 });
 
 const writeFilters = (params, patch) => {
   const next = new URLSearchParams(params);
-  const set  = (key, val) => {
-    if (val == null || val === '' || val === 'all' || val === 0
-        || (Array.isArray(val) && val.length === 0)) {
-      next.delete(key);
-    } else {
-      next.set(key, Array.isArray(val) ? val.join(',') : String(val));
-    }
+  const set = (key, val) => {
+    if (val == null || val === '' || val === 'all' || val === 0 || (Array.isArray(val) && val.length === 0)) next.delete(key);
+    else next.set(key, Array.isArray(val) ? val.join(',') : String(val));
   };
   if ('q'           in patch) set('q',     patch.q);
   if ('category'    in patch) set('cat',   patch.category);
@@ -69,12 +64,12 @@ const writeFilters = (params, patch) => {
 
 const buildQueryString = (f) => {
   const p = new URLSearchParams();
-  if (f.q)            p.set('q', f.q);
-  if (f.category    !== 'all') p.set('category',    f.category);
+  if (f.q) p.set('q', f.q);
+  if (f.category !== 'all') p.set('category', f.category);
   if (f.subcategory !== 'all') p.set('subcategory', f.subcategory);
   if (f.brand.length) p.set('brand', f.brand.join(','));
-  if (f.tag.length)   p.set('tag',   f.tag.join(','));
-  if (f.size.length)  p.set('size',  f.size.join(','));
+  if (f.tag.length) p.set('tag', f.tag.join(','));
+  if (f.size.length) p.set('size', f.size.join(','));
   if (f.color.length) p.set('color', f.color.join(','));
   if (f.minPrice > 0) p.set('minPrice', f.minPrice);
   if (f.maxPrice > 0) p.set('maxPrice', f.maxPrice);
@@ -82,7 +77,6 @@ const buildQueryString = (f) => {
   return p;
 };
 
-// ── Component ────────────────────────────────────────────────────────────────
 export default function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
   const filters = useMemo(() => readFilters(searchParams), [searchParams]);
@@ -93,12 +87,11 @@ export default function Shop() {
   const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error,       setError]       = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [gridView,    setGridView]    = useState(true);
   const [localSearch, setLocalSearch] = useState(filters.q);
-  const [facets,      setFacets]      = useState({ brands: [], tags: [], sizes: [], colors: [], priceRange: { min: 0, max: 500 } });
+  const [facets,      setFacets]      = useState(EMPTY_FACETS);
 
-  // SEO: title reflects the active filter context.
   const seoTitle = filters.q
     ? `Search: ${filters.q}`
     : filters.category !== 'all'
@@ -110,14 +103,12 @@ export default function Shop() {
     description: `Browse ${total || 'thousands of'} products${filters.category !== 'all' ? ` in ${filters.category}` : ''} at LUXE.`,
   });
 
-  // Keep the search input in sync with URL on back/forward
   useEffect(() => { setLocalSearch(filters.q); }, [filters.q]);
 
   const updateFilters = useCallback((patch) => {
     setSearchParams(writeFilters(searchParams, patch), { replace: false });
   }, [searchParams, setSearchParams]);
 
-  // Fetch products whenever filters change. AbortController prevents stale-response races.
   useEffect(() => {
     const ctl = new AbortController();
     setLoading(true);
@@ -126,67 +117,54 @@ export default function Shop() {
 
     const qs = buildQueryString(filters);
     qs.set('limit', LIMIT);
-    qs.set('skip',  0);
+    qs.set('skip', 0);
 
-    api.get(`/products?${qs.toString()}`, { signal: ctl.signal })
-      .then(({ products: rows, total: t }) => {
-        setProducts((rows || []).map(normalizeProduct));
-        setTotal(t || 0);
+    api.get(`/products/browse?${qs.toString()}`, { signal: ctl.signal })
+      .then(({ products: rows, total: nextTotal, facets: nextFacets }) => {
+        setProducts(rows || []);
+        setTotal(nextTotal || 0);
+        setFacets(nextFacets || EMPTY_FACETS);
       })
       .catch((err) => {
         if (err?.name === 'AbortError') return;
         setProducts([]);
         setTotal(0);
+        setFacets(EMPTY_FACETS);
         setError(err.message || 'Could not load products');
       })
       .finally(() => setLoading(false));
 
     return () => ctl.abort();
-  }, [searchParams]); // searchParams is the canonical filter source
-
-  // Load facets — scoped to current category/subcategory for relevant counts
-  useEffect(() => {
-    const ctl = new AbortController();
-    const qs  = new URLSearchParams();
-    if (filters.category    !== 'all') qs.set('category',    filters.category);
-    if (filters.subcategory !== 'all') qs.set('subcategory', filters.subcategory);
-
-    api.get(`/products/facets${qs.toString() ? `?${qs}` : ''}`, { signal: ctl.signal })
-      .then(setFacets)
-      .catch(() => {});
-    return () => ctl.abort();
-  }, [filters.category, filters.subcategory]);
+  }, [searchParams]);
 
   const loadMore = async () => {
     if (loadingMore || products.length >= total) return;
     const nextSkip = skip + LIMIT;
-    const ctl = new AbortController();
     setLoadingMore(true);
     try {
       const qs = buildQueryString(filters);
       qs.set('limit', LIMIT);
-      qs.set('skip',  nextSkip);
-      const { products: rows } = await api.get(`/products?${qs.toString()}`, { signal: ctl.signal });
-      setProducts((prev) => [...prev, ...(rows || []).map(normalizeProduct)]);
+      qs.set('skip', nextSkip);
+      const { products: rows } = await api.get(`/products/browse?${qs.toString()}`);
+      setProducts((prev) => [...prev, ...(rows || [])]);
       setSkip(nextSkip);
     } catch (err) {
-      if (err?.name !== 'AbortError') setError(err.message || 'Could not load more');
+      setError(err.message || 'Could not load more');
     } finally {
       setLoadingMore(false);
     }
   };
 
-  // ── Handlers ────────────────────────────────────────────────────────────
-  const handleSearch  = (e) => { e.preventDefault(); updateFilters({ q: localSearch.trim() }); };
-  const toggleInList  = (key, val) => {
+  const handleSearch = (e) => { e.preventDefault(); updateFilters({ q: localSearch.trim() }); };
+  const toggleInList = (key, val) => {
     const cur = filters[key];
     updateFilters({ [key]: cur.includes(val) ? cur.filter((v) => v !== val) : [...cur, val] });
   };
   const setCategory = (cat) => updateFilters({ category: cat, subcategory: 'all' });
   const setSubcategory = (sub) => updateFilters({ subcategory: sub });
-  const setSort     = (sortBy) => updateFilters({ sortBy });
+  const setSort = (sortBy) => updateFilters({ sortBy });
   const setMaxPrice = (val) => updateFilters({ maxPrice: val });
-  const clearAll    = () => setSearchParams(new URLSearchParams(), { replace: false });
+  const clearAll = () => setSearchParams(new URLSearchParams(), { replace: false });
 
   const hasFilters = filters.q || filters.category !== 'all' || filters.subcategory !== 'all'
                   || filters.brand.length || filters.tag.length || filters.size.length
@@ -198,16 +176,14 @@ export default function Shop() {
 
   return (
     <div className="shop-page">
-      {/* Header */}
       <div className="shop-header">
         <div className="shop-header-inner">
           <p className="section-label">Discover</p>
           <h1 className="shop-header-title">{seoTitle}</h1>
-          <p className="shop-header-count">{loading ? 'Loading…' : `${total} ${total === 1 ? 'product' : 'products'}`}</p>
+          <p className="shop-header-count">{loading ? 'Loading...' : `${total} ${total === 1 ? 'product' : 'products'}`}</p>
         </div>
       </div>
 
-      {/* Category tabs */}
       <div className="shop-cat-bar">
         <div className="shop-cat-inner">
           <div className="shop-cat-scroll scrollbar-hide">
@@ -224,7 +200,6 @@ export default function Shop() {
         </div>
       </div>
 
-      {/* Subcategory tabs */}
       {subCats && (
         <div className="shop-cat-bar" style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
           <div className="shop-cat-inner">
@@ -245,7 +220,6 @@ export default function Shop() {
       )}
 
       <div className="shop-body">
-        {/* Toolbar */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <form onSubmit={handleSearch} className="flex-1 max-w-xs relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
@@ -275,18 +249,17 @@ export default function Shop() {
           </select>
 
           <div className="ml-auto flex gap-1">
-            <button onClick={() => setGridView(true)}  className={`shop-view-btn${gridView  ? ' active' : ''}`} aria-label="Grid view"><Grid3X3 size={16} /></button>
+            <button onClick={() => setGridView(true)} className={`shop-view-btn${gridView ? ' active' : ''}`} aria-label="Grid view"><Grid3X3 size={16} /></button>
             <button onClick={() => setGridView(false)} className={`shop-view-btn${!gridView ? ' active' : ''}`} aria-label="List view"><LayoutList size={16} /></button>
           </div>
         </div>
 
-        {/* Filter panel */}
         {showFilters && (
           <div className="shop-filter-panel">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div>
                 <h3 className="shop-filter-section-title">Price Range</h3>
-                <p className="shop-price-label">${filters.minPrice} — ${priceMax}</p>
+                <p className="shop-price-label">${filters.minPrice} - ${priceMax}</p>
                 <input
                   type="range"
                   min={facets.priceRange?.min || 0}
@@ -335,7 +308,6 @@ export default function Shop() {
           </div>
         )}
 
-        {/* Active chips */}
         {hasFilters && (
           <div className="flex items-center gap-2 mb-5 flex-wrap">
             {filters.q && (
@@ -359,20 +331,19 @@ export default function Shop() {
           </div>
         )}
 
-        {/* Products */}
         {loading ? (
           <div className={gridView ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6' : 'space-y-3'}>
             {Array.from({ length: 8 }).map((_, i) => <div key={i} className="shop-skeleton-card" />)}
           </div>
         ) : error ? (
           <div className="shop-empty">
-            <p className="shop-empty-icon">⚠️</p>
+            <p className="shop-empty-icon">!</p>
             <p className="shop-empty-title">{error}</p>
             <button onClick={() => updateFilters({})} className="btn-primary">Retry</button>
           </div>
         ) : products.length === 0 ? (
           <div className="shop-empty">
-            <p className="shop-empty-icon">🔍</p>
+            <p className="shop-empty-icon">?</p>
             <p className="shop-empty-title">No products found</p>
             <p className="shop-empty-desc">Try adjusting your filters</p>
             <button onClick={clearAll} className="btn-primary">Clear Filters</button>

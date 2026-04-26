@@ -176,7 +176,7 @@ ON CONFLICT DO NOTHING;
 -- ── Product Images ───────────────────────────────────────────
 INSERT INTO public.product_images (product_id, image_url, is_primary, display_order) VALUES
   ('f0000001-0000-0000-0000-000000000001'::uuid, 'https://images.unsplash.com/photo-1490114538077-0a7f8cb49891?auto=format&fit=crop&w=600&q=80', true, 0),
-  ('f0000002-0000-0000-0000-000000000002'::uuid, 'https://images.unsplash.com/photo-1594938298603-c8148c4b4fef?auto=format&fit=crop&w=600&q=80', true, 0),
+  ('f0000002-0000-0000-0000-000000000002'::uuid, 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80', true, 0),
   ('f0000003-0000-0000-0000-000000000003'::uuid, 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=600&q=80', true, 0),
   ('f0000004-0000-0000-0000-000000000004'::uuid, 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=600&q=80', true, 0),
   ('f0000005-0000-0000-0000-000000000005'::uuid, 'https://images.unsplash.com/photo-1552374196-c4e7ffc6e126?auto=format&fit=crop&w=600&q=80', true, 0),
@@ -207,6 +207,11 @@ INSERT INTO public.product_images (product_id, image_url, is_primary, display_or
   ('f000001e-0000-0000-0000-00000000001e'::uuid, 'https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?auto=format&fit=crop&w=600&q=80', true, 0),
   ('f000001f-0000-0000-0000-00000000001f'::uuid, 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?auto=format&fit=crop&w=600&q=80', true, 0)
 ON CONFLICT DO NOTHING;
+
+-- Manual hotfix for existing seeded rows already present in Supabase:
+-- UPDATE public.product_images
+-- SET image_url = 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=600&q=80'
+-- WHERE image_url LIKE '%photo-1594938298603-c8148c4b4fef%';
 
 -- ── Product Tags ─────────────────────────────────────────────
 INSERT INTO public.product_tags (product_id, tag) VALUES

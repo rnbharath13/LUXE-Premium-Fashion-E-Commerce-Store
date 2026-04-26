@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Heart, ShoppingBag, Truck, RotateCcw, Shield, ChevronRight } from 'lucide-react';
-import { api, normalizeProduct } from '../../lib/api';
+import { api } from '../../lib/api';
 import { useSeo } from '../../hooks/useSeo';
 import ProductCard from '../../components/ProductCard';
 import useStore from '../../store/useStore';
 import './ProductDetails.css';
 
-const FALLBACK = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600';
+const FALLBACK = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=88';
 
 export default function ProductDetails() {
   const { id } = useParams();
   const { addToCart, setCartOpen, toggleWishlist, isWishlisted, showToast, user } = useStore();
-  const [product,       setProduct]      = useState(null);
-  const [related,       setRelated]      = useState([]);
-  const [reviews,       setReviews]      = useState([]);
-  const [loading,       setLoading]      = useState(true);
-  const [activeImg,     setActiveImg]    = useState(0);
+  const [product,       setProduct]       = useState(null);
+  const [related,       setRelated]       = useState([]);
+  const [reviews,       setReviews]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [activeImg,     setActiveImg]     = useState(0);
   const [selectedSize,  setSelectedSize]  = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity,      setQuantity]      = useState(1);
@@ -34,69 +34,60 @@ export default function ProductDetails() {
       api.get(`/products/${id}/reviews`),
     ])
       .then(([prod, rel, revs]) => {
-        const p = normalizeProduct(prod);
-        setProduct(p);
-        setRelated((rel || []).map(normalizeProduct));
+        setProduct(prod);
+        setRelated(rel || []);
         setReviews(revs || []);
-        setSelectedSize(p.sizes[0] || '');
-        setSelectedColor(p.colors[0] || '');
+        setSelectedSize(prod?.sizes?.[0] || '');
+        setSelectedColor(prod?.colors?.[0] || '');
       })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Compute everything off `product` defensively — these run on every render but
-  // produce undefined values when product is still loading.
   const sizeMultiplier = product
     ? (product.variants?.find((v) => v.size === selectedSize)?.price_modifier
         ? Number(product.variants.find((v) => v.size === selectedSize).price_modifier)
         : 0)
     : 0;
   const displayPrice = product ? (product.price * (1 + sizeMultiplier)).toFixed(2) : '';
-  const discount     = product?.originalPrice
+  const discount = product?.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : null;
   const allImages = product?.images?.length
     ? product.images.map((img) => img.image_url)
     : product ? [product.image] : [];
 
-  // schema.org Product structured data — drives Google rich results / Shopping eligibility.
-  // Built only when product is loaded; useSeo no-ops on the structured-data block when null.
   const jsonLd = product ? {
-    id:   'product',
+    id: 'product',
     data: {
-      '@context':    'https://schema.org/',
-      '@type':       'Product',
-      name:          product.name,
-      image:         (product.images || []).map((i) => i.image_url).filter(Boolean),
-      description:   product.description || `Premium ${product.name} from ${product.brand}.`,
-      sku:           `LX-${product.id.slice(0, 8).toUpperCase()}`,
-      brand:         { '@type': 'Brand', name: product.brand },
+      '@context': 'https://schema.org/',
+      '@type': 'Product',
+      name: product.name,
+      image: allImages.filter(Boolean),
+      description: product.description || `Premium ${product.name} from ${product.brand}.`,
+      sku: `LX-${product.id.slice(0, 8).toUpperCase()}`,
+      brand: { '@type': 'Brand', name: product.brand },
       offers: {
-        '@type':         'Offer',
-        url:             window.location.href,
-        priceCurrency:   'USD',
-        price:           Number(product.price).toFixed(2),
-        availability:    product.inStock
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-        itemCondition:   'https://schema.org/NewCondition',
+        '@type': 'Offer',
+        url: window.location.href,
+        priceCurrency: 'USD',
+        price: Number(product.price).toFixed(2),
+        availability: product.inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        itemCondition: 'https://schema.org/NewCondition',
       },
       ...(product.reviews > 0 && {
         aggregateRating: {
-          '@type':       'AggregateRating',
-          ratingValue:   product.rating,
-          reviewCount:   product.reviews,
+          '@type': 'AggregateRating',
+          ratingValue: product.rating,
+          reviewCount: product.reviews,
         },
       }),
     },
   } : null;
 
-  // SEO must be called unconditionally (rules of hooks) — pass null fields when product not ready.
   useSeo({
     title:       product?.name,
-    description: product?.description?.slice(0, 160)
-                  || (product ? `${product.name} by ${product.brand} — $${displayPrice}.` : null),
+    description: product?.description?.slice(0, 160) || (product ? `${product.name} by ${product.brand} - $${displayPrice}.` : null),
     image:       allImages[0],
     type:        'product',
     jsonLd,
@@ -119,7 +110,6 @@ export default function ProductDetails() {
 
   const wishlisted = isWishlisted(product.id);
 
-
   const handleAddToCart = () => {
     if (product.sizes[0] !== 'One Size' && !selectedSize) {
       showToast('Please select a size', 'error');
@@ -136,7 +126,7 @@ export default function ProductDetails() {
     setSubmitting(true);
     try {
       const review = await api.post(`/products/${id}/reviews`, reviewForm);
-      setReviews(prev => [{ ...review, name: `${user.first_name} ${user.last_name?.[0] || ''}.` }, ...prev]);
+      setReviews((prev) => [{ ...review, name: `${user.first_name} ${user.last_name?.[0] || ''}.` }, ...prev]);
       setReviewForm({ rating: 5, comment: '' });
       showToast('Review submitted!');
     } catch (err) {
@@ -149,7 +139,6 @@ export default function ProductDetails() {
   return (
     <div className="pd-page animate-fade-in">
       <div className="pd-inner">
-        {/* Breadcrumb */}
         <div className="pd-breadcrumb">
           <Link to="/">Home</Link>
           <ChevronRight size={12} />
@@ -159,13 +148,12 @@ export default function ProductDetails() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-14 mb-20">
-          {/* Images */}
           <div>
             <div className="pd-main-img">
               <img
                 src={allImages[activeImg] || FALLBACK}
                 alt={product.name}
-                onError={e => { e.target.onerror = null; e.target.src = FALLBACK; }}
+                onError={(e) => { e.target.onerror = null; e.target.src = FALLBACK; }}
               />
               {discount && <span className="pd-img-discount">-{discount}%</span>}
               {!product.inStock && (
@@ -182,18 +170,13 @@ export default function ProductDetails() {
                     className={`pd-thumbnail ${i === activeImg ? 'active' : 'inactive'}`}
                     onClick={() => setActiveImg(i)}
                   >
-                    <img
-                      src={src}
-                      alt=""
-                      onError={e => { e.target.onerror = null; e.target.src = FALLBACK; }}
-                    />
+                    <img src={src} alt="" onError={(e) => { e.target.onerror = null; e.target.src = FALLBACK; }} />
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Info */}
           <div>
             <p className="pd-brand">{product.brand}</p>
             <div className="flex items-start justify-between mb-4">
@@ -206,10 +189,9 @@ export default function ProductDetails() {
               </button>
             </div>
 
-            {/* Rating */}
             <div className="flex items-center gap-3 mb-5">
               <div className="pd-rating">
-                {[1,2,3,4,5].map((i) => (
+                {[1, 2, 3, 4, 5].map((i) => (
                   <Star key={i} size={14} fill={i <= Math.floor(product.rating) ? '#c9a96e' : 'none'} stroke="#c9a96e" strokeWidth={1.5} />
                 ))}
                 <span className="pd-rating-value">{product.rating}</span>
@@ -220,7 +202,6 @@ export default function ProductDetails() {
               </div>
             </div>
 
-            {/* Price */}
             <div className="pd-price-section flex items-center gap-4">
               <div>
                 <span className="pd-price">${displayPrice}</span>
@@ -230,7 +211,6 @@ export default function ProductDetails() {
               {discount && <span className="pd-discount-badge">Save {discount}%</span>}
             </div>
 
-            {/* Color */}
             {product.colors.length > 0 && (
               <div className="mb-6">
                 <p className="pd-picker-label">Colour</p>
@@ -247,7 +227,6 @@ export default function ProductDetails() {
               </div>
             )}
 
-            {/* Size */}
             {product.sizes[0] !== 'One Size' && (
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-3">
@@ -261,10 +240,9 @@ export default function ProductDetails() {
               </div>
             )}
 
-            {/* Qty + Add */}
             <div className="flex gap-3 mb-8">
               <div className="pd-qty-wrap">
-                <button className="pd-qty-btn" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>−</button>
+                <button className="pd-qty-btn" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>-</button>
                 <span className="pd-qty-val">{quantity}</span>
                 <button className="pd-qty-btn" onClick={() => setQuantity((q) => q + 1)}>+</button>
               </div>
@@ -274,7 +252,6 @@ export default function ProductDetails() {
               </button>
             </div>
 
-            {/* Perks */}
             <div className="pd-perks-box">
               {[[Truck, 'Free shipping on orders over $150'], [RotateCcw, 'Free 30-day returns'], [Shield, 'Secure checkout']].map(([Icon, text], i) => (
                 <div key={i} className="pd-perk-item">
@@ -286,7 +263,6 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="mb-20">
           <div className="pd-tabs-bar">
             {['description', 'details', 'reviews'].map((tab) => (
@@ -317,17 +293,12 @@ export default function ProductDetails() {
 
           {activeTab === 'reviews' && (
             <div className="space-y-6 max-w-2xl">
-              {/* Submit review */}
               {user && (
                 <form onSubmit={handleSubmitReview} className="pd-review-card">
                   <p className="pd-picker-label mb-3">Write a Review</p>
                   <div className="flex gap-2 mb-3">
-                    {[1,2,3,4,5].map((i) => (
-                      <button
-                        type="button"
-                        key={i}
-                        onClick={() => setReviewForm(f => ({ ...f, rating: i }))}
-                      >
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <button type="button" key={i} onClick={() => setReviewForm((f) => ({ ...f, rating: i }))}>
                         <Star size={20} fill={i <= reviewForm.rating ? '#c9a96e' : 'none'} stroke="#c9a96e" strokeWidth={1.5} />
                       </button>
                     ))}
@@ -337,7 +308,7 @@ export default function ProductDetails() {
                     rows={3}
                     placeholder="Share your thoughts..."
                     value={reviewForm.comment}
-                    onChange={e => setReviewForm(f => ({ ...f, comment: e.target.value }))}
+                    onChange={(e) => setReviewForm((f) => ({ ...f, comment: e.target.value }))}
                     required
                   />
                   <button type="submit" className="btn-primary text-sm" disabled={submitting}>
@@ -360,7 +331,7 @@ export default function ProductDetails() {
                       </span>
                     </div>
                     <div className="pd-review-stars">
-                      {[1,2,3,4,5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? '#c9a96e' : 'none'} stroke="#c9a96e" strokeWidth={1.5} />)}
+                      {[1, 2, 3, 4, 5].map((i) => <Star key={i} size={12} fill={i <= r.rating ? '#c9a96e' : 'none'} stroke="#c9a96e" strokeWidth={1.5} />)}
                     </div>
                   </div>
                   <p className="pd-review-comment">{r.comment}</p>
@@ -370,7 +341,6 @@ export default function ProductDetails() {
           )}
         </div>
 
-        {/* Related */}
         {related.length > 0 && (
           <div>
             <h2 className="pd-related-title">You May Also Like</h2>

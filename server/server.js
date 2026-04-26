@@ -11,6 +11,7 @@ import dotenv from 'dotenv';
 import authRoutes        from './routes/auth.js';
 import productRoutes     from './routes/products.js';
 import categoryRoutes    from './routes/categories.js';
+import locationRoutes    from './routes/location.js';
 import subcategoryRoutes from './routes/subcategories.js';
 import orderRoutes       from './routes/orders.js';
 import wishlistRoutes    from './routes/wishlist.js';
@@ -96,6 +97,7 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', env: process.env.N
 app.use('/api/auth',          authRoutes);
 app.use('/api/products',      productRoutes);
 app.use('/api/categories',    categoryRoutes);
+app.use('/api/location',      locationRoutes);
 app.use('/api/subcategories', subcategoryRoutes);
 app.use('/api/orders',        orderRoutes);
 app.use('/api/wishlist',      wishlistRoutes);

@@ -32,12 +32,12 @@ const megaMenus = {
 };
 
 const navItems = [
-  { label: 'New',         to: '/shop?cat=new' },
+  { label: 'New',         to: '/shop?tag=New%20Arrival' },
   { label: "Men's",       to: '/shop?cat=men',        mega: true },
   { label: "Women's",     to: '/shop?cat=women',      mega: true },
   { label: 'Footwear',    to: '/shop?cat=footwear' },
   { label: 'Accessories', to: '/shop?cat=accessories' },
-  { label: 'Sale',        to: '/shop?cat=sale',        sale: true },
+  { label: 'Sale',        to: '/shop?tag=Sale',        sale: true },
 ];
 
 export default function Navbar() {

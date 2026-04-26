@@ -86,7 +86,7 @@ export const refreshToken = async (req, res, next) => {
 
     authLog.tokenRefreshed(userId, ip(req));
     res.cookie('refreshToken', newRawToken, REFRESH_COOKIE);
-    res.json({ token: signAccess(user.id, user.email, user.role) });
+    res.json({ user, token: signAccess(user.id, user.email, user.role) });
   } catch (err) {
     next(err);
   }

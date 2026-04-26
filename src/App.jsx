@@ -17,7 +17,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
-import { api, setAccessToken, onAuthExpired } from './lib/api';
+import { bootstrapSession, setAccessToken, onAuthExpired } from './lib/api';
 import useStore from './store/useStore';
 
 const STORE_KEY = 'luxe-store';
@@ -90,8 +90,12 @@ function AppShell() {
 export default function App() {
   const [authReady, setAuthReady] = useState(false);
   useEffect(() => {
-    api.post('/auth/refresh')
-      .then((data) => { if (data?.token) setAccessToken(data.token); })
+    bootstrapSession()
+      .then((data) => {
+        if (data?.token) setAccessToken(data.token);
+        if (data?.user) useStore.getState().setUser(data.user);
+        if (!data) useStore.getState().clearSession();
+      })
       .catch(() => {})
       .finally(() => setAuthReady(true));
   }, []);

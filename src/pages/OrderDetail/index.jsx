@@ -143,7 +143,8 @@ export default function OrderDetail() {
               <div className="space-y-4">
                 {items.map((item) => {
                   const product = item.products;
-                  const img     = product?.product_images?.find((i) => i.is_primary)?.image_url
+                  const img     = item.image_url
+                                || product?.product_images?.find((i) => i.is_primary)?.image_url
                                 || product?.product_images?.[0]?.image_url
                                 || FALLBACK_IMG;
                   return (
@@ -174,6 +175,7 @@ export default function OrderDetail() {
                 {ship.city}{ship.state ? `, ${ship.state}` : ''} {ship.postalCode}<br/>
                 {ship.country}
                 {ship.phone && <><br/>Phone: {ship.phone}</>}
+                {ship.location?.formattedAddress && <><br/>Verified: {ship.location.formattedAddress}</>}
               </p>
             </div>
 

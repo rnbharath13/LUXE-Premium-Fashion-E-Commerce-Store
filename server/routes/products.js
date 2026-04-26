@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  getProducts, getProductFacets, getProductById, getRelatedProducts,
+  getProducts, getBrowseProducts, getHomeProducts, getProductFacets, getProductById, getRelatedProducts,
   getProductReviews, createProductReview,
 } from '../controllers/productController.js';
 import { protect } from '../middleware/auth.js';
@@ -13,6 +13,8 @@ const router = Router();
 
 // Listing + faceting (public, validated query params)
 router.get('/',        validateQuery(listProductsQuerySchema), getProducts);
+router.get('/browse',  validateQuery(listProductsQuerySchema), getBrowseProducts);
+router.get('/home',    getHomeProducts);
 router.get('/facets',  validateQuery(facetsQuerySchema),       getProductFacets);
 
 // Detail + related + reviews (public)

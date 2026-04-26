@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, CreditCard, MapPin, ArrowRight, ArrowLeft, Lock } from 'lucide-react';
+import { Check, CreditCard, MapPin, ArrowRight, ArrowLeft, Lock, LocateFixed } from 'lucide-react';
 import useStore from '../../store/useStore';
+import { api } from '../../lib/api';
 import { computeTotals } from '../../lib/checkout';
 import './Checkout.css';
 
@@ -9,22 +10,29 @@ const STEPS = ['Shipping', 'Payment', 'Review'];
 const FORM_KEY = 'luxe-checkout-form';
 
 const EMPTY_ADDRESS = {
-  fullName: '', phone: '', line1: '', line2: '', city: '', state: '', postalCode: '', country: '',
+  fullName: '',
+  phone: '',
+  line1: '',
+  line2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: '',
+  location: null,
 };
 const EMPTY_PAYMENT = { cardName: '', cardNumber: '', expiry: '', cvv: '' };
 
-// ── Validation ──────────────────────────────────────────────────
 const required = (v) => (v ?? '').toString().trim().length > 0;
 
 const validateAddress = (a) => {
   const e = {};
-  if (!required(a.fullName)   || a.fullName.trim().length   < 2) e.fullName   = 'Full name is required';
-  if (!required(a.phone)      || a.phone.replace(/\D/g, '').length < 7) e.phone = 'Valid phone number is required';
-  if (!required(a.line1)      || a.line1.trim().length      < 3) e.line1      = 'Address is required';
-  if (!required(a.city)       || a.city.trim().length       < 2) e.city       = 'City is required';
-  if (!required(a.state)      || a.state.trim().length      < 2) e.state      = 'State / region is required';
+  if (!required(a.fullName) || a.fullName.trim().length < 2) e.fullName = 'Full name is required';
+  if (!required(a.phone) || a.phone.replace(/\D/g, '').length < 7) e.phone = 'Valid phone number is required';
+  if (!required(a.line1) || a.line1.trim().length < 3) e.line1 = 'Address is required';
+  if (!required(a.city) || a.city.trim().length < 2) e.city = 'City is required';
+  if (!required(a.state) || a.state.trim().length < 2) e.state = 'State / region is required';
   if (!required(a.postalCode) || a.postalCode.trim().length < 3) e.postalCode = 'Postal code is required';
-  if (!required(a.country)    || a.country.trim().length    < 2) e.country    = 'Country is required';
+  if (!required(a.country) || a.country.trim().length < 2) e.country = 'Country is required';
   return e;
 };
 
@@ -33,59 +41,55 @@ const validatePayment = (p, method) => {
   const e = {};
   if (!required(p.cardName) || p.cardName.trim().length < 2) e.cardName = 'Cardholder name is required';
   const digits = (p.cardNumber || '').replace(/\s/g, '');
-  if (!/^\d{12,19}$/.test(digits))           e.cardNumber = 'Enter a valid card number';
-  if (!/^\d{2}\/\d{2}$/.test(p.expiry || '')) e.expiry     = 'Use MM/YY';
-  if (!/^\d{3,4}$/.test(p.cvv || ''))         e.cvv        = '3–4 digit CVV';
+  if (!/^\d{12,19}$/.test(digits)) e.cardNumber = 'Enter a valid card number';
+  if (!/^\d{2}\/\d{2}$/.test(p.expiry || '')) e.expiry = 'Use MM/YY';
+  if (!/^\d{3,4}$/.test(p.cvv || '')) e.cvv = '3-4 digit CVV';
   return e;
 };
 
-// ── Checkout component ─────────────────────────────────────────
 export default function Checkout() {
   const navigate = useNavigate();
   const { cart, user, placeOrder, showToast } = useStore();
 
-  const [step,            setStep]            = useState(0);
-  const [placing,         setPlacing]         = useState(false);
-  const [placed,          setPlaced]          = useState(false);
-  const [orderNum,        setOrderNum]        = useState('');
-  const [error,           setError]           = useState('');
-  const [errors,          setErrors]          = useState({});
-  const [shipping,        setShipping]        = useState(EMPTY_ADDRESS);
-  const [billing,         setBilling]         = useState(EMPTY_ADDRESS);
-  const [billingSame,     setBillingSame]     = useState(true);
-  const [paymentMethod,   setPaymentMethod]   = useState('card');
-  const [payment,         setPayment]         = useState(EMPTY_PAYMENT);
-  // Idempotency key: stable per checkout attempt — prevents duplicate orders on retry/double-click
-  const [idempotencyKey]  = useState(() => crypto.randomUUID());
+  const [step, setStep] = useState(0);
+  const [placing, setPlacing] = useState(false);
+  const [placed, setPlaced] = useState(false);
+  const [orderNum, setOrderNum] = useState('');
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [shipping, setShipping] = useState(EMPTY_ADDRESS);
+  const [billing, setBilling] = useState(EMPTY_ADDRESS);
+  const [billingSame, setBillingSame] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [payment, setPayment] = useState(EMPTY_PAYMENT);
+  const [locating, setLocating] = useState(false);
+  const [locationStatus, setLocationStatus] = useState('');
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
-  // Restore form draft from sessionStorage
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(FORM_KEY) || 'null');
       if (saved) {
-        if (saved.shipping)      setShipping(saved.shipping);
-        if (saved.billing)       setBilling(saved.billing);
+        if (saved.shipping) setShipping({ ...EMPTY_ADDRESS, ...saved.shipping });
+        if (saved.billing) setBilling({ ...EMPTY_ADDRESS, ...saved.billing });
         if (typeof saved.billingSame === 'boolean') setBillingSame(saved.billingSame);
         if (saved.paymentMethod) setPaymentMethod(saved.paymentMethod);
       }
     } catch {}
   }, []);
 
-  // Persist draft (excluding card details — never persist PCI data)
   useEffect(() => {
     sessionStorage.setItem(FORM_KEY, JSON.stringify({ shipping, billing, billingSame, paymentMethod }));
   }, [shipping, billing, billingSame, paymentMethod]);
 
-  // Prefill name/email from user once
   useEffect(() => {
     if (user && !shipping.fullName) {
       setShipping((s) => ({ ...s, fullName: `${user.first_name || ''} ${user.last_name || ''}`.trim() }));
     }
-  }, [user]);
+  }, [user, shipping.fullName]);
 
   const totals = useMemo(() => computeTotals(cart), [cart]);
 
-  // ── Handlers ─────────────────────────────────────────────────
   const updateShipping = (key, val) => {
     setShipping((s) => ({ ...s, [key]: val }));
     if (errors[`shipping.${key}`]) setErrors((e) => ({ ...e, [`shipping.${key}`]: undefined }));
@@ -99,6 +103,54 @@ export default function Checkout() {
     if (errors[`payment.${key}`]) setErrors((e) => ({ ...e, [`payment.${key}`]: undefined }));
   };
 
+  const applyLiveLocation = () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported in this browser', 'error');
+      return;
+    }
+
+    setLocating(true);
+    setLocationStatus('');
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          const resolved = await api.get(`/location/reverse-geocode?lat=${lat}&lng=${lng}`);
+          setShipping((prev) => ({
+            ...prev,
+            ...resolved,
+            fullName: prev.fullName,
+            phone: prev.phone,
+          }));
+          if (billingSame) {
+            setBilling((prev) => ({
+              ...prev,
+              ...resolved,
+              fullName: prev.fullName,
+              phone: prev.phone,
+            }));
+          }
+          setLocationStatus(resolved.location?.formattedAddress || 'Live location captured');
+          showToast('Delivery location updated from your live location');
+        } catch (err) {
+          showToast(err.message || 'Could not resolve your live location', 'error');
+        } finally {
+          setLocating(false);
+        }
+      },
+      (geoError) => {
+        setLocating(false);
+        const message = geoError.code === geoError.PERMISSION_DENIED
+          ? 'Location permission was denied'
+          : 'Could not get your current location';
+        showToast(message, 'error');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  };
+
   const goNext = () => {
     if (step === 0) {
       const sErr = validateAddress(shipping);
@@ -107,13 +159,21 @@ export default function Checkout() {
         ...Object.fromEntries(Object.entries(sErr).map(([k, v]) => [`shipping.${k}`, v])),
         ...Object.fromEntries(Object.entries(bErr).map(([k, v]) => [`billing.${k}`, v])),
       };
-      if (Object.keys(flat).length) { setErrors(flat); showToast('Please fix the errors above', 'error'); return; }
+      if (Object.keys(flat).length) {
+        setErrors(flat);
+        showToast('Please fix the errors above', 'error');
+        return;
+      }
       setErrors({});
       setStep(1);
     } else if (step === 1) {
       const pErr = validatePayment(payment, paymentMethod);
       const flat = Object.fromEntries(Object.entries(pErr).map(([k, v]) => [`payment.${k}`, v]));
-      if (Object.keys(flat).length) { setErrors(flat); showToast('Please fix the errors above', 'error'); return; }
+      if (Object.keys(flat).length) {
+        setErrors(flat);
+        showToast('Please fix the errors above', 'error');
+        return;
+      }
       setErrors({});
       setStep(2);
     }
@@ -126,14 +186,14 @@ export default function Checkout() {
     try {
       const items = cart.map((i) => ({
         productId: i.id,
-        quantity:  i.quantity,
-        size:      i.selectedSize,
-        color:     i.selectedColor,
+        quantity: i.quantity,
+        size: i.selectedSize,
+        color: i.selectedColor,
       }));
       const result = await placeOrder({
         items,
         shippingAddress: shipping,
-        billingAddress:  billingSame ? shipping : billing,
+        billingAddress: billingSame ? shipping : billing,
         paymentMethod,
       }, idempotencyKey);
       sessionStorage.removeItem(FORM_KEY);
@@ -147,7 +207,6 @@ export default function Checkout() {
     }
   };
 
-  // ── Empty cart guard ─────────────────────────────────────────
   if (cart.length === 0 && !placed) return (
     <div className="checkout-success">
       <div className="checkout-success-inner">
@@ -157,7 +216,6 @@ export default function Checkout() {
     </div>
   );
 
-  // ── Success screen ───────────────────────────────────────────
   if (placed) return (
     <div className="checkout-success animate-fade-in">
       <div className="checkout-success-inner">
@@ -180,7 +238,6 @@ export default function Checkout() {
   const labelCls = 'auth-label';
   const fieldCls = 'input-field mb-1';
 
-  // ── Render ───────────────────────────────────────────────────
   return (
     <div className="checkout-page animate-fade-in">
       <div className="checkout-page-inner">
@@ -188,7 +245,6 @@ export default function Checkout() {
           <ArrowLeft size={15} /> Back to Bag
         </Link>
 
-        {/* Steps */}
         <div className="checkout-steps">
           {STEPS.map((s, i) => (
             <div key={s} className="checkout-step-item">
@@ -198,24 +254,25 @@ export default function Checkout() {
                 </div>
                 <span className={`checkout-step-label hidden sm:block ${i === step ? 'active' : 'pending'}`}>{s}</span>
               </div>
-              {i < STEPS.length - 1 && (
-                <div className={`checkout-step-connector ${i < step ? 'done' : 'pending'}`} />
-              )}
+              {i < STEPS.length - 1 && <div className={`checkout-step-connector ${i < step ? 'done' : 'pending'}`} />}
             </div>
           ))}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Form */}
           <div className="lg:col-span-2">
             <div className="checkout-form-card">
-
-              {/* Step 0: Shipping ────────────────────────────────── */}
               {step === 0 && (
                 <div>
                   <h2 className="checkout-section-title">
                     <MapPin size={18} className="checkout-section-title-icon" /> Shipping Address
                   </h2>
+                  <div className="checkout-location-actions">
+                    <button type="button" className="btn-ghost" onClick={applyLiveLocation} disabled={locating}>
+                      <LocateFixed size={15} /> {locating ? 'Detecting...' : 'Use Live Location'}
+                    </button>
+                    {locationStatus && <p className="checkout-location-status">{locationStatus}</p>}
+                  </div>
                   <AddressFields
                     prefix="shipping"
                     value={shipping}
@@ -258,7 +315,6 @@ export default function Checkout() {
                 </div>
               )}
 
-              {/* Step 1: Payment ─────────────────────────────────── */}
               {step === 1 && (
                 <div>
                   <h2 className="checkout-section-title">
@@ -268,7 +324,7 @@ export default function Checkout() {
                   <div className="checkout-payment-methods">
                     {[
                       { value: 'card', label: 'Credit / Debit Card' },
-                      { value: 'cod',  label: 'Cash on Delivery'    },
+                      { value: 'cod', label: 'Cash on Delivery' },
                     ].map((opt) => (
                       <label key={opt.value} className={`checkout-payment-option${paymentMethod === opt.value ? ' active' : ''}`}>
                         <input
@@ -285,33 +341,18 @@ export default function Checkout() {
 
                   {paymentMethod === 'card' && (
                     <div className="space-y-4 mt-5">
-                      <Field
-                        label="Cardholder Name" cls={labelCls}
-                        error={errors['payment.cardName']}
-                      >
-                        <input className={fieldCls} placeholder="John Doe"
-                          value={payment.cardName}
-                          onChange={(e) => updatePayment('cardName', e.target.value)} />
+                      <Field label="Cardholder Name" cls={labelCls} error={errors['payment.cardName']}>
+                        <input className={fieldCls} placeholder="John Doe" value={payment.cardName} onChange={(e) => updatePayment('cardName', e.target.value)} />
                       </Field>
-                      <Field
-                        label="Card Number" cls={labelCls}
-                        error={errors['payment.cardNumber']}
-                      >
-                        <input className={fieldCls} placeholder="4242 4242 4242 4242"
-                          inputMode="numeric"
-                          value={payment.cardNumber}
-                          onChange={(e) => updatePayment('cardNumber', e.target.value)} />
+                      <Field label="Card Number" cls={labelCls} error={errors['payment.cardNumber']}>
+                        <input className={fieldCls} placeholder="4242 4242 4242 4242" inputMode="numeric" value={payment.cardNumber} onChange={(e) => updatePayment('cardNumber', e.target.value)} />
                       </Field>
                       <div className="grid grid-cols-2 gap-4">
                         <Field label="Expiry" cls={labelCls} error={errors['payment.expiry']}>
-                          <input className={fieldCls} placeholder="MM/YY"
-                            value={payment.expiry}
-                            onChange={(e) => updatePayment('expiry', e.target.value)} />
+                          <input className={fieldCls} placeholder="MM/YY" value={payment.expiry} onChange={(e) => updatePayment('expiry', e.target.value)} />
                         </Field>
                         <Field label="CVV" cls={labelCls} error={errors['payment.cvv']}>
-                          <input className={fieldCls} placeholder="123" inputMode="numeric"
-                            value={payment.cvv}
-                            onChange={(e) => updatePayment('cvv', e.target.value)} />
+                          <input className={fieldCls} placeholder="123" inputMode="numeric" value={payment.cvv} onChange={(e) => updatePayment('cvv', e.target.value)} />
                         </Field>
                       </div>
                     </div>
@@ -337,7 +378,6 @@ export default function Checkout() {
                 </div>
               )}
 
-              {/* Step 2: Review ──────────────────────────────────── */}
               {step === 2 && (
                 <div>
                   <h2 className="checkout-section-title">Review Order</h2>
@@ -345,10 +385,11 @@ export default function Checkout() {
                   <div className="checkout-review-section">
                     <p className="checkout-review-section-title">Ship to</p>
                     <p className="checkout-review-section-body">
-                      {shipping.fullName}<br/>
-                      {shipping.line1}{shipping.line2 ? `, ${shipping.line2}` : ''}<br/>
-                      {shipping.city}, {shipping.state} {shipping.postalCode}<br/>
-                      {shipping.country} · {shipping.phone}
+                      {shipping.fullName}<br />
+                      {shipping.line1}{shipping.line2 ? `, ${shipping.line2}` : ''}<br />
+                      {shipping.city}, {shipping.state} {shipping.postalCode}<br />
+                      {shipping.country} - {shipping.phone}
+                      {shipping.location?.formattedAddress && <><br />Verified: {shipping.location.formattedAddress}</>}
                     </p>
                   </div>
 
@@ -356,7 +397,7 @@ export default function Checkout() {
                     <p className="checkout-review-section-title">Payment</p>
                     <p className="checkout-review-section-body">
                       {paymentMethod === 'card'
-                        ? `Card ending ${payment.cardNumber.replace(/\s/g, '').slice(-4) || '••••'}`
+                        ? `Card ending ${payment.cardNumber.replace(/\s/g, '').slice(-4) || '****'}`
                         : 'Cash on Delivery'}
                     </p>
                   </div>
@@ -370,12 +411,10 @@ export default function Checkout() {
                         <div className="flex-1 min-w-0">
                           <p className="checkout-review-item-name">{item.name}</p>
                           <p className="checkout-review-item-meta">
-                            Qty: {item.quantity}{item.selectedSize ? ` · ${item.selectedSize}` : ''}
+                            Qty: {item.quantity}{item.selectedSize ? ` - ${item.selectedSize}` : ''}
                           </p>
                         </div>
-                        <span className="checkout-review-item-price">
-                          ${(item.price * item.quantity).toFixed(2)}
-                        </span>
+                        <span className="checkout-review-item-price">${(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -395,22 +434,21 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* Summary */}
           <div className="checkout-summary">
             <h3 className="checkout-summary-title">Order Summary</h3>
             <div className="space-y-3 text-sm mb-4">
               {cart.map((i) => (
                 <div key={i.id + i.selectedSize + i.selectedColor} className="checkout-summary-row">
-                  <span className="checkout-summary-item-name">{i.name} ×{i.quantity}</span>
+                  <span className="checkout-summary-item-name">{i.name} x{i.quantity}</span>
                   <span className="checkout-summary-item-price">${(i.price * i.quantity).toFixed(2)}</span>
                 </div>
               ))}
             </div>
             <div className="border-t pt-4 space-y-2 text-sm" style={{ borderColor: 'var(--border)' }}>
               {[
-                ['Subtotal', `$${totals.subtotal.toFixed(2)}`,                                    false],
+                ['Subtotal', `$${totals.subtotal.toFixed(2)}`, false],
                 ['Shipping', totals.shippingCost === 0 ? 'Free' : `$${totals.shippingCost.toFixed(2)}`, totals.shippingCost === 0],
-                ['Tax',      `$${totals.tax.toFixed(2)}`,                                          false],
+                ['Tax', `$${totals.tax.toFixed(2)}`, false],
               ].map(([label, val, isFree]) => (
                 <div key={label} className="checkout-summary-row">
                   <span className="checkout-summary-label">{label}</span>
@@ -429,7 +467,6 @@ export default function Checkout() {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────
 function Field({ label, cls, error, children }) {
   return (
     <div>
@@ -442,14 +479,14 @@ function Field({ label, cls, error, children }) {
 
 function AddressFields({ prefix, value, errors, onChange, labelCls, fieldCls }) {
   const fields = [
-    { key: 'fullName',   label: 'Full Name',     ph: 'John Doe',         span: 2 },
-    { key: 'phone',      label: 'Phone',         ph: '+1 555 123 4567',  span: 1, type: 'tel' },
-    { key: 'country',    label: 'Country',       ph: 'United States',    span: 1 },
-    { key: 'line1',      label: 'Address Line 1', ph: '123 Main St',     span: 2 },
-    { key: 'line2',      label: 'Address Line 2 (optional)', ph: 'Apt 4B', span: 2 },
-    { key: 'city',       label: 'City',          ph: 'New York',         span: 1 },
-    { key: 'state',      label: 'State / Region', ph: 'NY',              span: 1 },
-    { key: 'postalCode', label: 'Postal Code',   ph: '10001',            span: 1 },
+    { key: 'fullName', label: 'Full Name', ph: 'John Doe', span: 2 },
+    { key: 'phone', label: 'Phone', ph: '+1 555 123 4567', span: 1, type: 'tel' },
+    { key: 'country', label: 'Country', ph: 'United States', span: 1 },
+    { key: 'line1', label: 'Address Line 1', ph: '123 Main St', span: 2 },
+    { key: 'line2', label: 'Address Line 2 (optional)', ph: 'Apt 4B', span: 2 },
+    { key: 'city', label: 'City', ph: 'New York', span: 1 },
+    { key: 'state', label: 'State / Region', ph: 'NY', span: 1 },
+    { key: 'postalCode', label: 'Postal Code', ph: '10001', span: 1 },
   ];
   return (
     <div className="grid grid-cols-2 gap-4">

@@ -2,6 +2,7 @@ import { supabase } from '../config/supabase.js';
 import {
   TAX_RATE, SHIPPING_COST, FREE_SHIPPING_THRESHOLD, round2,
 } from '../config/checkout.js';
+import { getProductImageOverride } from '../lib/catalogMedia.js';
 import { generateOrderNumber, findVariant } from '../lib/orderHelpers.js';
 import {
   decrementStock, restoreStock, restoreStockForOrder,
@@ -244,6 +245,15 @@ export const getOrderById = async (req, res, next) => {
       .maybeSingle();
 
     if (error || !data) return res.status(404).json({ error: 'Order not found' });
+
+    data.order_items = (data.order_items || []).map((item) => ({
+      ...item,
+      image_url: getProductImageOverride(item.products?.slug)
+        || item.products?.product_images?.find((img) => img.is_primary)?.image_url
+        || item.products?.product_images?.[0]?.image_url
+        || '',
+    }));
+
     res.json(data);
   } catch (err) {
     next(err);

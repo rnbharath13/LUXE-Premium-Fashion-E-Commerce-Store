@@ -5,8 +5,6 @@ import { api, setAccessToken, clearAccessToken } from '../lib/api';
 const useStore = create(
   persist(
     (set, get) => ({
-
-      // ── Cart ──────────────────────────────────────────────────────
       cart: [],
       cartOpen: false,
 
@@ -14,14 +12,14 @@ const useStore = create(
         const key = `${product.id}-${selectedSize}-${selectedColor}`;
         set((state) => {
           const existing = state.cart.find(
-            i => `${i.id}-${i.selectedSize}-${i.selectedColor}` === key
+            (item) => `${item.id}-${item.selectedSize}-${item.selectedColor}` === key
           );
           if (existing) {
             return {
-              cart: state.cart.map(i =>
-                `${i.id}-${i.selectedSize}-${i.selectedColor}` === key
-                  ? { ...i, quantity: i.quantity + (product.quantity || 1) }
-                  : i
+              cart: state.cart.map((item) =>
+                `${item.id}-${item.selectedSize}-${item.selectedColor}` === key
+                  ? { ...item, quantity: item.quantity + (product.quantity || 1) }
+                  : item
               ),
             };
           }
@@ -32,36 +30,38 @@ const useStore = create(
       removeFromCart: (id, selectedSize, selectedColor) => {
         set((state) => ({
           cart: state.cart.filter(
-            i => !(i.id === id && i.selectedSize === selectedSize && i.selectedColor === selectedColor)
+            (item) => !(item.id === id && item.selectedSize === selectedSize && item.selectedColor === selectedColor)
           ),
         }));
       },
 
       updateQuantity: (id, selectedSize, selectedColor, qty) => {
-        if (qty < 1) { get().removeFromCart(id, selectedSize, selectedColor); return; }
+        if (qty < 1) {
+          get().removeFromCart(id, selectedSize, selectedColor);
+          return;
+        }
         set((state) => ({
-          cart: state.cart.map(i =>
-            i.id === id && i.selectedSize === selectedSize && i.selectedColor === selectedColor
-              ? { ...i, quantity: qty }
-              : i
+          cart: state.cart.map((item) =>
+            item.id === id && item.selectedSize === selectedSize && item.selectedColor === selectedColor
+              ? { ...item, quantity: qty }
+              : item
           ),
         }));
       },
 
-      clearCart:   () => set({ cart: [] }),
+      clearCart: () => set({ cart: [] }),
       setCartOpen: (open) => set({ cartOpen: open }),
 
-      get cartCount() { return get().cart.reduce((sum, i) => sum + i.quantity, 0); },
-      get cartTotal() { return get().cart.reduce((sum, i) => sum + i.price * i.quantity, 0); },
+      get cartCount() { return get().cart.reduce((sum, item) => sum + item.quantity, 0); },
+      get cartTotal() { return get().cart.reduce((sum, item) => sum + item.price * item.quantity, 0); },
 
-      // ── Wishlist ──────────────────────────────────────────────────
       wishlist: [],
 
       toggleWishlist: async (product) => {
         const { wishlist, user, showToast } = get();
-        const exists = wishlist.find(p => p.id === product.id);
+        const exists = wishlist.find((p) => p.id === product.id);
 
-        set({ wishlist: exists ? wishlist.filter(p => p.id !== product.id) : [...wishlist, product] });
+        set({ wishlist: exists ? wishlist.filter((p) => p.id !== product.id) : [...wishlist, product] });
 
         if (user) {
           try {
@@ -73,10 +73,11 @@ const useStore = create(
         }
       },
 
-      isWishlisted: (id) => get().wishlist.some(p => p.id === id),
+      isWishlisted: (id) => get().wishlist.some((p) => p.id === id),
 
-      // ── Auth ──────────────────────────────────────────────────────
       user: null,
+
+      setUser: (user) => set({ user }),
 
       login: async (email, password) => {
         const data = await api.post('/auth/login', { email, password });
@@ -98,22 +99,17 @@ const useStore = create(
         return data;
       },
 
-      // Explicit user-initiated sign-out: revokes server-side refresh cookie + clears all client state.
       logout: async () => {
         clearAccessToken();
         set({ user: null, cart: [], wishlist: [], orders: [] });
-        // Best-effort revoke; server is idempotent (returns 200 even with no cookie).
-        try { await api.post('/auth/logout'); } catch { /* network may be down — local state is already cleared */ }
+        try { await api.post('/auth/logout'); } catch {}
       },
 
-      // Silent session-expired cleanup (refresh failed). Keeps cart/wishlist for re-login UX —
-      // the user didn't ask to log out, their token just lapsed. Skips server call (refresh just failed).
       clearSession: () => {
         clearAccessToken();
         set({ user: null, orders: [] });
       },
 
-      // ── Orders ────────────────────────────────────────────────────
       orders: [],
 
       fetchOrders: async () => {
@@ -126,22 +122,19 @@ const useStore = create(
 
       placeOrder: async (payload, idempotencyKey) => {
         const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined;
-        const data    = await api.post('/orders', payload, { headers });
+        const data = await api.post('/orders', payload, { headers });
         get().clearCart();
         return data;
       },
 
-      // ── Sessions ──────────────────────────────────────────────────
-      fetchSessions:  ()  => api.get(`/auth/sessions`),
-      revokeSession:  (id) => api.delete(`/auth/sessions/${id}`),
+      fetchSessions: () => api.get('/auth/sessions'),
+      revokeSession: (id) => api.delete(`/auth/sessions/${id}`),
       logoutAllOther: async () => {
-        // Revoke every session except the current one — server-side equivalent
-        // would be `/logout-all` but that kills current too. We delete one-by-one.
         const sessions = await api.get('/auth/sessions');
         await Promise.all(
           (sessions || [])
-            .filter((s) => !s.current)
-            .map((s) => api.delete(`/auth/sessions/${s.id}`).catch(() => {}))
+            .filter((session) => !session.current)
+            .map((session) => api.delete(`/auth/sessions/${session.id}`).catch(() => {}))
         );
       },
 
@@ -150,22 +143,16 @@ const useStore = create(
       cancelOrder: async (id) => {
         const updated = await api.patch(`/orders/${id}/cancel`);
         set((state) => ({
-          orders: state.orders.map((o) => (o.id === id ? { ...o, status: updated.status } : o)),
+          orders: state.orders.map((order) => (order.id === id ? { ...order, status: updated.status } : order)),
         }));
         return updated;
       },
 
-      // ── Toast ─────────────────────────────────────────────────────
       toast: null,
       showToast: (message, type = 'success') => {
         set({ toast: { message, type, id: Date.now() } });
         setTimeout(() => set({ toast: null }), 3000);
       },
-
-      // ── Filters ───────────────────────────────────────────────────
-      filters: { search: '', category: 'all', minPrice: 0, maxPrice: 500, sortBy: 'featured', tags: [] },
-      setFilters:   (updates) => set((state) => ({ filters: { ...state.filters, ...updates } })),
-      resetFilters: () => set({ filters: { search: '', category: 'all', minPrice: 0, maxPrice: 500, sortBy: 'featured', tags: [] } }),
     }),
     {
       name: 'luxe-store',

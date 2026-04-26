@@ -18,6 +18,13 @@ const addressSchema = z.object({
   state:      z.string().trim().min(2).max(100),
   postalCode: z.string().trim().min(3).max(20),
   country:    z.string().trim().min(2).max(100),
+  location:   z.object({
+    latitude:         z.number().gte(-90).lte(90),
+    longitude:        z.number().gte(-180).lte(180),
+    formattedAddress: z.string().trim().min(3).max(300),
+    placeId:          z.string().trim().max(200).optional().default(''),
+    source:           z.enum(['google_geocode']).default('google_geocode'),
+  }).optional(),
 });
 
 const orderItemSchema = z.object({
