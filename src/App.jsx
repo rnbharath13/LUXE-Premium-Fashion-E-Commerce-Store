@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
@@ -17,13 +17,24 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import { api, setAccessToken } from './lib/api';
+import useStore from './store/useStore';
+
+function RequireAuth({ children }) {
+  const user = useStore(s => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
 
 export default function App() {
+  const [authReady, setAuthReady] = useState(false);
   useEffect(() => {
     api.post('/auth/refresh')
       .then((data) => { if (data?.token) setAccessToken(data.token); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAuthReady(true));
   }, []);
+
+  if (!authReady) return null;
 
   return (
     <BrowserRouter>
@@ -32,18 +43,21 @@ export default function App() {
       <Toast />
       <main>
         <Routes>
-          <Route path="/"                element={<Home />} />
-          <Route path="/shop"            element={<Shop />} />
-          <Route path="/product/:id"     element={<ProductDetails />} />
-          <Route path="/cart"            element={<Cart />} />
-          <Route path="/checkout"        element={<Checkout />} />
-          <Route path="/orders"          element={<Orders />} />
-          <Route path="/profile"         element={<Profile />} />
+          {/* Public routes */}
           <Route path="/login"           element={<Login />} />
           <Route path="/register"        element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password"  element={<ResetPassword />} />
           <Route path="/verify-email"    element={<VerifyEmail />} />
+
+          {/* Protected routes */}
+          <Route path="/"        element={<RequireAuth><Home /></RequireAuth>} />
+          <Route path="/shop"    element={<RequireAuth><Shop /></RequireAuth>} />
+          <Route path="/product/:id" element={<RequireAuth><ProductDetails /></RequireAuth>} />
+          <Route path="/cart"    element={<RequireAuth><Cart /></RequireAuth>} />
+          <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+          <Route path="/orders"  element={<RequireAuth><Orders /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
         </Routes>
       </main>
       <Footer />
