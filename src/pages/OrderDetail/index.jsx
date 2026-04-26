@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, X, MapPin, CreditCard, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, X, MapPin, CreditCard, AlertCircle, Undo2 } from 'lucide-react';
 import useStore from '../../store/useStore';
 import './OrderDetail.css';
+
+const RETURN_WINDOW_DAYS    = 14;
+const CANCELLABLE_STATUSES  = ['pending', 'processing'];
+const RETURNABLE_STATUSES   = ['shipped', 'delivered'];
 
 const STATUS_CONFIG = {
   pending:    { icon: Clock,       label: 'Pending',    cls: 'od-status-pending'    },
@@ -17,12 +21,15 @@ const FALLBACK_IMG = 'https://images.unsplash.com/photo-1441986300917-64674bd600
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { fetchOrder, cancelOrder, showToast, user } = useStore();
+  const { fetchOrder, cancelOrder, requestReturn, showToast, user } = useStore();
 
-  const [order,      setOrder]      = useState(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState('');
-  const [cancelling, setCancelling] = useState(false);
+  const [order,        setOrder]        = useState(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState('');
+  const [cancelling,   setCancelling]   = useState(false);
+  const [returnOpen,   setReturnOpen]   = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [returning,    setReturning]    = useState(false);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -34,16 +41,42 @@ export default function OrderDetail() {
   }, [id, user]);
 
   const handleCancel = async () => {
-    if (!confirm('Cancel this order? This cannot be undone.')) return;
+    if (!confirm('Cancel this order? Your card will be refunded if it was paid.')) return;
     setCancelling(true);
     try {
       const updated = await cancelOrder(order.id);
-      setOrder({ ...order, status: updated.status });
+      setOrder({ ...order, status: updated.status, payment_status: updated.payment_status });
       showToast('Order cancelled');
     } catch (err) {
       showToast(err.message || 'Could not cancel order', 'error');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleSubmitReturn = async (e) => {
+    e.preventDefault();
+    if (returnReason.trim().length < 5) {
+      showToast('Tell us why you\'re returning (at least 5 characters)', 'error');
+      return;
+    }
+    setReturning(true);
+    try {
+      const result = await requestReturn(order.id, returnReason.trim());
+      // Server flips status to 'cancelled' + payment_status to 'refunded' on auto-approval.
+      setOrder({
+        ...order,
+        status:         'cancelled',
+        payment_status: 'refunded',
+        order_returns:  [...(order.order_returns || []), result.return],
+      });
+      setReturnOpen(false);
+      setReturnReason('');
+      showToast('Return processed and refund issued');
+    } catch (err) {
+      showToast(err.message || 'Could not process return', 'error');
+    } finally {
+      setReturning(false);
     }
   };
 
@@ -67,7 +100,17 @@ export default function OrderDetail() {
   const StatusIcon = cfg.icon;
   const ship       = order.shipping_address || {};
   const items      = order.order_items || [];
-  const canCancel  = order.status === 'pending';
+
+  const canCancel = CANCELLABLE_STATUSES.includes(order.status);
+
+  // Return eligibility — shipped/delivered, paid, within 14 days, no existing return.
+  const ageDays    = (Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60 * 24);
+  const hasReturn  = (order.order_returns || []).length > 0;
+  const canReturn  = RETURNABLE_STATUSES.includes(order.status)
+                  && order.payment_status === 'paid'
+                  && ageDays <= RETURN_WINDOW_DAYS
+                  && !hasReturn;
+  const existingReturn = (order.order_returns || [])[0];
 
   return (
     <div className="od-page animate-fade-in">
@@ -172,9 +215,59 @@ export default function OrderDetail() {
                   {cancelling ? 'Cancelling...' : 'Cancel Order'}
                 </button>
               )}
+
+              {canReturn && (
+                <button onClick={() => setReturnOpen(true)} className="od-return-btn">
+                  <Undo2 size={13} /> Request Return
+                </button>
+              )}
+
+              {existingReturn && (
+                <div className="od-return-status">
+                  <p className="od-return-status-title">Return {existingReturn.status}</p>
+                  <p className="od-return-status-amount">
+                    Refund: ${Number(existingReturn.refund_amount).toFixed(2)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {returnOpen && (
+          <div className="od-modal-overlay" onClick={() => !returning && setReturnOpen(false)}>
+            <div className="od-modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="od-modal-title">Request Return</h3>
+              <p className="od-modal-desc">
+                Refund of <strong>${Number(order.total).toFixed(2)}</strong> will be issued to your original payment method.
+                Stock for the items will be restored.
+              </p>
+              <form onSubmit={handleSubmitReturn}>
+                <label htmlFor="return-reason" className="od-modal-label">Why are you returning this order?</label>
+                <textarea
+                  id="return-reason"
+                  className="od-modal-textarea"
+                  rows={4}
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  placeholder="Item didn't fit, wrong size, not as described…"
+                  required
+                  minLength={5}
+                  maxLength={1000}
+                  autoFocus
+                />
+                <div className="od-modal-actions">
+                  <button type="button" onClick={() => setReturnOpen(false)} disabled={returning} className="btn-ghost">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={returning || returnReason.trim().length < 5} className="btn-primary">
+                    {returning ? 'Processing…' : 'Confirm Return'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

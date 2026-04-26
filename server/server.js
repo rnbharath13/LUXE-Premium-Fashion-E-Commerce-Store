@@ -17,8 +17,12 @@ import wishlistRoutes    from './routes/wishlist.js';
 import uploadRoutes      from './routes/upload.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
 import logger from './lib/logger.js';
+import { checkEnv } from './lib/envCheck.js';
 
 dotenv.config();
+// Fail-fast on missing/placeholder secrets BEFORE any route is mounted.
+// Better to crash on boot than serve traffic with predictable JWT signing keys.
+checkEnv();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app  = express();

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { createOrder, getUserOrders, getOrderById, cancelOrder } from '../controllers/orderController.js';
+import { createOrder, getUserOrders, getOrderById, cancelOrder, requestReturn } from '../controllers/orderController.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { MAX_ITEMS_PER_ORDER, MAX_QUANTITY_PER_LINE } from '../config/checkout.js';
@@ -34,9 +34,14 @@ const createOrderSchema = z.object({
   paymentMethod:   z.enum(['card', 'cod']),
 });
 
+const requestReturnSchema = z.object({
+  reason: z.string().trim().min(5, 'Tell us why you\'re returning (5+ chars)').max(1000),
+});
+
 router.post('/',            validate(createOrderSchema), createOrder);
 router.get('/',             getUserOrders);
 router.get('/:id',          getOrderById);
 router.patch('/:id/cancel', cancelOrder);
+router.post('/:id/return',  validate(requestReturnSchema), requestReturn);
 
 export default router;

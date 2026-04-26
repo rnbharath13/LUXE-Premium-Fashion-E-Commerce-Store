@@ -6,32 +6,40 @@ server/node_modules/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
 server/.env
 
 # Build output
 dist/
 build/
+.vite/
+*.tsbuildinfo
 
 # Uploads (user-generated, not source)
 server/uploads/
 
-# Logs
+# Logs & debug captures
 logs/
 *.log
+*.har
 npm-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Cache
 .cache/
 .eslintcache
+.parcel-cache/
 
 # Testing
 coverage/
 .nyc_output/
 
-# IDE
+# IDE / editor
 .vscode/
 .idea/
+.history/
 *.swp
 *.swo
 *~
@@ -42,5 +50,10 @@ coverage/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Lock files (keep package-lock, ignore nothing extra here)
+# Certificates / keys (never commit)
+*.pem
+*.key
+*.crt
+*.p12

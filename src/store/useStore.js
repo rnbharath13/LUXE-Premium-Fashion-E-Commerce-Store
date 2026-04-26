@@ -145,6 +145,8 @@ const useStore = create(
         );
       },
 
+      requestReturn: (id, reason) => api.post(`/orders/${id}/return`, { reason }),
+
       cancelOrder: async (id) => {
         const updated = await api.patch(`/orders/${id}/cancel`);
         set((state) => ({
