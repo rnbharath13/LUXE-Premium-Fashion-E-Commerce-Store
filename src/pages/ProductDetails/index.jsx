@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Star, Heart, ShoppingBag, Truck, RotateCcw, Shield, ChevronRight } from 'lucide-react';
 import { api, normalizeProduct } from '../../lib/api';
+import { useSeo } from '../../hooks/useSeo';
 import ProductCard from '../../components/ProductCard';
 import useStore from '../../store/useStore';
 import './ProductDetails.css';
@@ -44,6 +45,63 @@ export default function ProductDetails() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Compute everything off `product` defensively — these run on every render but
+  // produce undefined values when product is still loading.
+  const sizeMultiplier = product
+    ? (product.variants?.find((v) => v.size === selectedSize)?.price_modifier
+        ? Number(product.variants.find((v) => v.size === selectedSize).price_modifier)
+        : 0)
+    : 0;
+  const displayPrice = product ? (product.price * (1 + sizeMultiplier)).toFixed(2) : '';
+  const discount     = product?.originalPrice
+    ? Math.round((1 - product.price / product.originalPrice) * 100)
+    : null;
+  const allImages = product?.images?.length
+    ? product.images.map((img) => img.image_url)
+    : product ? [product.image] : [];
+
+  // schema.org Product structured data — drives Google rich results / Shopping eligibility.
+  // Built only when product is loaded; useSeo no-ops on the structured-data block when null.
+  const jsonLd = product ? {
+    id:   'product',
+    data: {
+      '@context':    'https://schema.org/',
+      '@type':       'Product',
+      name:          product.name,
+      image:         (product.images || []).map((i) => i.image_url).filter(Boolean),
+      description:   product.description || `Premium ${product.name} from ${product.brand}.`,
+      sku:           `LX-${product.id.slice(0, 8).toUpperCase()}`,
+      brand:         { '@type': 'Brand', name: product.brand },
+      offers: {
+        '@type':         'Offer',
+        url:             window.location.href,
+        priceCurrency:   'USD',
+        price:           Number(product.price).toFixed(2),
+        availability:    product.inStock
+          ? 'https://schema.org/InStock'
+          : 'https://schema.org/OutOfStock',
+        itemCondition:   'https://schema.org/NewCondition',
+      },
+      ...(product.reviews > 0 && {
+        aggregateRating: {
+          '@type':       'AggregateRating',
+          ratingValue:   product.rating,
+          reviewCount:   product.reviews,
+        },
+      }),
+    },
+  } : null;
+
+  // SEO must be called unconditionally (rules of hooks) — pass null fields when product not ready.
+  useSeo({
+    title:       product?.name,
+    description: product?.description?.slice(0, 160)
+                  || (product ? `${product.name} by ${product.brand} — $${displayPrice}.` : null),
+    image:       allImages[0],
+    type:        'product',
+    jsonLd,
+  });
+
   if (loading) return (
     <div className="pd-not-found">
       <div className="pd-not-found-inner"><p className="pd-not-found-title">Loading...</p></div>
@@ -61,19 +119,6 @@ export default function ProductDetails() {
 
   const wishlisted = isWishlisted(product.id);
 
-  const getSizeMultiplier = (size) => {
-    const variant = product.variants?.find(v => v.size === size);
-    return variant?.price_modifier ? Number(variant.price_modifier) : 0;
-  };
-
-  const sizeMultiplier = getSizeMultiplier(selectedSize);
-  const displayPrice   = (product.price * (1 + sizeMultiplier)).toFixed(2);
-  const discount       = product.originalPrice ? Math.round((1 - product.price / product.originalPrice) * 100) : null;
-
-  // real images from DB, fall back to the primary image repeated
-  const allImages = product.images?.length
-    ? product.images.map(img => img.image_url)
-    : [product.image];
 
   const handleAddToCart = () => {
     if (product.sizes[0] !== 'One Size' && !selectedSize) {

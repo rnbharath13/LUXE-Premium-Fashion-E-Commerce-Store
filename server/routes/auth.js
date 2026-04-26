@@ -3,6 +3,7 @@ import {
   register, login, refreshToken, logout, logoutAll,
   getProfile, updateProfile,
   verifyEmailHandler, forgotPassword, resetPassword,
+  getSessions, revokeSession,
 } from '../controllers/authController.js';
 import { protect } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -27,5 +28,9 @@ router.get ('/me',           protect, getProfile);
 router.get ('/profile',      protect, getProfile);
 router.put ('/profile',      protect, validate(updateProfileSchema), updateProfile);
 router.post('/logout-all',   protect, logoutAll);
+
+// Active sessions / device dashboard
+router.get   ('/sessions',     protect, getSessions);
+router.delete('/sessions/:id', protect, revokeSession);
 
 export default router;

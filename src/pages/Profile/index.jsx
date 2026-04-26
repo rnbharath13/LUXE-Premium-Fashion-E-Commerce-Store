@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Package, Heart, Settings, LogOut, ChevronRight } from 'lucide-react';
 import useStore from '../../store/useStore';
 import ProductCard from '../../components/ProductCard';
+import ActiveSessions from '../../components/ActiveSessions';
 import './Profile.css';
 
 export default function Profile() {
@@ -87,6 +88,9 @@ export default function Profile() {
             <span className="profile-logout-label">Sign Out</span>
           </button>
         </div>
+
+        {/* Active sessions / device dashboard */}
+        <ActiveSessions />
 
         {/* Wishlist preview */}
         {wishlist.length > 0 && (

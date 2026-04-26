@@ -3,11 +3,18 @@ import {
   generateResetToken, verifyResetToken, resetUserPassword,
   sendVerificationEmail, sendResetEmail, verifyEmail,
   createRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllUserTokens,
+  listSessions, revokeSessionById,
   signAccess, REFRESH_COOKIE,
 } from '../services/authService.js';
 import { authLog } from '../lib/logger.js';
 
 const ip = (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown';
+
+// Capture device fingerprint for the session record. Truncated to keep DB rows bounded.
+const captureMeta = (req) => ({
+  userAgent: req.headers['user-agent']?.slice(0, 500) ?? null,
+  ip:        ip(req),
+});
 
 export const register = async (req, res, next) => {
   try {
@@ -21,12 +28,12 @@ export const register = async (req, res, next) => {
       throw error;
     }
 
-    const rawRefresh = await createRefreshToken(user.id);
+    const rawRefresh = await createRefreshToken(user.id, captureMeta(req));
     await sendVerificationEmail(user.email, `${process.env.FRONTEND_URL}/verify-email?token=${verifyToken}`);
     authLog.registerSuccess(user.id, user.email, ip(req));
 
     res.cookie('refreshToken', rawRefresh, REFRESH_COOKIE);
-    res.status(201).json({ user, token: signAccess(user.id, user.email) });
+    res.status(201).json({ user, token: signAccess(user.id, user.email, user.role) });
   } catch (err) {
     next(err);
   }
@@ -48,11 +55,11 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const rawRefresh = await createRefreshToken(user.id);
+    const rawRefresh = await createRefreshToken(user.id, captureMeta(req));
     authLog.loginSuccess(user.id, user.email, ip(req));
 
     res.cookie('refreshToken', rawRefresh, REFRESH_COOKIE);
-    res.json({ user, token: signAccess(user.id, user.email) });
+    res.json({ user, token: signAccess(user.id, user.email, user.role) });
   } catch (err) {
     next(err);
   }
@@ -63,7 +70,7 @@ export const refreshToken = async (req, res, next) => {
     const raw = req.cookies?.refreshToken;
     if (!raw) return res.status(401).json({ error: 'No refresh token' });
 
-    const { userId, newRawToken, reason } = await rotateRefreshToken(raw);
+    const { userId, newRawToken, reason } = await rotateRefreshToken(raw, captureMeta(req));
 
     if (!userId) {
       authLog.tokenInvalid(ip(req), reason);
@@ -79,7 +86,7 @@ export const refreshToken = async (req, res, next) => {
 
     authLog.tokenRefreshed(userId, ip(req));
     res.cookie('refreshToken', newRawToken, REFRESH_COOKIE);
-    res.json({ token: signAccess(user.id, user.email) });
+    res.json({ token: signAccess(user.id, user.email, user.role) });
   } catch (err) {
     next(err);
   }
@@ -182,6 +189,29 @@ export const resetPassword = async (req, res, next) => {
 
     authLog.passwordResetSuccess(userId, ip(req));
     res.json({ message: 'Password reset successfully. Please log in again.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Sessions / device dashboard ──────────────────────────────
+
+export const getSessions = async (req, res, next) => {
+  try {
+    const sessions = await listSessions(req.user.userId, req.cookies?.refreshToken);
+    res.json(sessions);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const revokeSession = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { success } = await revokeSessionById(req.user.userId, id);
+    if (!success) return res.status(404).json({ error: 'Session not found' });
+    authLog.tokenInvalid(ip(req), `manual_revoke:${id}`);
+    res.json({ message: 'Session revoked' });
   } catch (err) {
     next(err);
   }

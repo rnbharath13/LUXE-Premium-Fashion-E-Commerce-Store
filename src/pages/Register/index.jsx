@@ -40,6 +40,11 @@ export default function Register() {
     }
   };
 
+  const fields = [
+    { label: 'Full Name',     icon: User, key: 'name',  type: 'text',  ph: 'John Doe',         autoComplete: 'name'  },
+    { label: 'Email Address', icon: Mail, key: 'email', type: 'email', ph: 'you@example.com',  autoComplete: 'email' },
+  ];
+
   return (
     <div className="auth-layout">
       {/* Left editorial */}
@@ -71,38 +76,73 @@ export default function Register() {
             <p className="auth-form-subtitle">Unlock a world of premium fashion</p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {[
-              { label: 'Full Name',      icon: User, key: 'name',  type: 'text',  ph: 'John Doe' },
-              { label: 'Email Address',  icon: Mail, key: 'email', type: 'email', ph: 'you@example.com' },
-            ].map(({ label, icon: Icon, key, type, ph }) => (
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {fields.map(({ label, icon: Icon, key, type, ph, autoComplete }) => (
               <div key={key}>
-                <label className="auth-label">{label}</label>
+                <label className="auth-label" htmlFor={`register-${key}`}>{label}</label>
                 <div className="auth-input-wrap">
                   <Icon size={14} className="auth-input-icon" />
-                  <input type={type} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} className="input-field" placeholder={ph} />
+                  <input
+                    id={`register-${key}`}
+                    name={key}
+                    type={type}
+                    autoComplete={autoComplete}
+                    autoCapitalize={key === 'email' ? 'off' : 'words'}
+                    spellCheck={key === 'email' ? 'false' : undefined}
+                    required
+                    value={form[key]}
+                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+                    className="input-field"
+                    placeholder={ph}
+                  />
                 </div>
               </div>
             ))}
 
             <div>
-              <label className="auth-label">Password</label>
+              <label className="auth-label" htmlFor="register-password">Password</label>
               <div className="auth-input-wrap">
                 <Lock size={14} className="auth-input-icon" />
-                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pr-9" placeholder="Min. 8 characters" />
-                <button type="button" className="auth-input-icon-right" onClick={() => setShowPwd(!showPwd)}>
+                <input
+                  id="register-password"
+                  name="password"
+                  type={showPwd ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="input-field pr-9"
+                  placeholder="Min. 8 characters"
+                />
+                <button
+                  type="button"
+                  className="auth-input-icon-right"
+                  aria-label={showPwd ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPwd(!showPwd)}
+                >
                   {showPwd ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
             <div>
-              <label className="auth-label">Confirm Password</label>
+              <label className="auth-label" htmlFor="register-confirm">Confirm Password</label>
               <div className="auth-input-wrap">
                 <Lock size={14} className="auth-input-icon" />
-                <input type="password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} className="input-field" placeholder="Re-enter password" />
+                <input
+                  id="register-confirm"
+                  name="confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={form.confirm}
+                  onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+                  className="input-field"
+                  placeholder="Re-enter password"
+                />
               </div>
             </div>
 

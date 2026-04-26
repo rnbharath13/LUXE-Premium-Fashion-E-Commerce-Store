@@ -17,8 +17,11 @@ export const REFRESH_COOKIE = {
   path:     '/api/auth',
 };
 
-export const signAccess = (userId, email) =>
-  jwt.sign({ userId, email }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
+// Embed role in the access token so middleware can authorize without a DB hit per request.
+// Trade-off: a role change won't take effect until next access-token refresh (~15min).
+// Acceptable since role changes are rare; for instant revocation use a roles-version claim.
+export const signAccess = (userId, email, role) =>
+  jwt.sign({ userId, email, role }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '15m' });
 
 // ── User queries ─────────────────────────────────────────────
 
@@ -85,9 +88,14 @@ export const verifyCredentials = async (email, password) => {
     return { user: null, reason: 'account_locked', lockedUntil: user.locked_until };
   }
 
+  // Reset lockout counters and stamp last successful login (audit trail / suspicious-activity detection).
   await supabase
     .from('users')
-    .update({ failed_login_attempts: 0, locked_until: null })
+    .update({
+      failed_login_attempts: 0,
+      locked_until:          null,
+      last_login_at:         new Date().toISOString(),
+    })
     .eq('id', user.id);
 
   const { password_hash, failed_login_attempts, locked_until, ...safeUser } = user;
@@ -105,22 +113,33 @@ const incrementFailedAttempts = async (userId, currentAttempts) => {
     .eq('id', userId);
 };
 
-// ── Refresh token store ───────────────────────────────────────
+// ── Refresh token store (one row = one device session) ───────
 
-export const createRefreshToken = async (userId) => {
+// `meta` carries device fingerprint captured at the controller layer (req.headers, req.ip).
+// We never trust these values for security decisions — they're informational, for the
+// "Active Sessions" dashboard and forensic analysis after an incident.
+export const createRefreshToken = async (userId, meta = {}) => {
   const raw     = generateRefreshToken();
   const hash    = hashToken(raw);
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const now     = new Date().toISOString();
 
   const { error } = await supabase
     .from('refresh_tokens')
-    .insert([{ user_id: userId, token_hash: hash, expires_at: expires.toISOString() }]);
+    .insert([{
+      user_id:      userId,
+      token_hash:   hash,
+      expires_at:   expires.toISOString(),
+      user_agent:   meta.userAgent ?? null,
+      ip:           meta.ip        ?? null,
+      last_used_at: now,
+    }]);
 
   if (error) throw error;
   return raw;
 };
 
-export const rotateRefreshToken = async (rawToken) => {
+export const rotateRefreshToken = async (rawToken, meta = {}) => {
   const hash = hashToken(rawToken);
 
   const { data: stored, error } = await supabase
@@ -142,7 +161,7 @@ export const rotateRefreshToken = async (rawToken) => {
   }
 
   await supabase.from('refresh_tokens').update({ revoked: true }).eq('id', stored.id);
-  const newRaw = await createRefreshToken(stored.user_id);
+  const newRaw = await createRefreshToken(stored.user_id, meta);
   return { userId: stored.user_id, newRawToken: newRaw };
 };
 
@@ -157,6 +176,47 @@ export const revokeAllUserTokens = async (userId) => {
     .update({ revoked: true })
     .eq('user_id', userId)
     .eq('revoked', false);
+};
+
+// ── Session dashboard ────────────────────────────────────────
+
+// List active sessions (rows that aren't revoked and haven't expired).
+// `currentRawToken` lets us flag which row corresponds to the device making the request.
+// We intentionally never return the token hash to the client.
+export const listSessions = async (userId, currentRawToken) => {
+  const currentHash = currentRawToken ? hashToken(currentRawToken) : null;
+  const nowIso      = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('refresh_tokens')
+    .select('id, user_agent, ip, created_at, last_used_at, expires_at, token_hash')
+    .eq('user_id', userId)
+    .eq('revoked', false)
+    .gt('expires_at', nowIso)
+    .order('last_used_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map(({ token_hash, ...session }) => ({
+    ...session,
+    current: currentHash !== null && token_hash === currentHash,
+  }));
+};
+
+// Revoke one specific session. Ownership check (user_id match) prevents IDOR
+// — a user can only end their own sessions.
+export const revokeSessionById = async (userId, sessionId) => {
+  const { data, error } = await supabase
+    .from('refresh_tokens')
+    .update({ revoked: true })
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .eq('revoked', false)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  return { success: !!data };
 };
 
 // ── Email verification ────────────────────────────────────────

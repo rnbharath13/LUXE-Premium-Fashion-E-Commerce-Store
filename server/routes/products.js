@@ -1,23 +1,26 @@
 import { Router } from 'express';
 import {
-  getProducts, getProductById, getRelatedProducts,
+  getProducts, getProductFacets, getProductById, getRelatedProducts,
   getProductReviews, createProductReview,
 } from '../controllers/productController.js';
 import { protect } from '../middleware/auth.js';
-import { validate } from '../middleware/validate.js';
-import { z } from 'zod';
+import { validate, validateQuery } from '../middleware/validate.js';
+import {
+  listProductsQuerySchema, facetsQuerySchema, reviewSchema,
+} from '../validators/products.schema.js';
 
 const router = Router();
 
-const reviewSchema = z.object({
-  rating:  z.number().int().min(1).max(5),
-  comment: z.string().min(1).max(1000),
-});
+// Listing + faceting (public, validated query params)
+router.get('/',        validateQuery(listProductsQuerySchema), getProducts);
+router.get('/facets',  validateQuery(facetsQuerySchema),       getProductFacets);
 
-router.get('/',                getProducts);
-router.get('/:id',             getProductById);
-router.get('/:id/related',     getRelatedProducts);
-router.get('/:id/reviews',     getProductReviews);
+// Detail + related + reviews (public)
+router.get('/:id',          getProductById);
+router.get('/:id/related',  getRelatedProducts);
+router.get('/:id/reviews',  getProductReviews);
+
+// Review submission (auth required)
 router.post('/:id/reviews', protect, validate(reviewSchema), createProductReview);
 
 export default router;

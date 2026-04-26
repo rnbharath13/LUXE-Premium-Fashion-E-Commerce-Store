@@ -98,29 +98,59 @@ const useStore = create(
         return data;
       },
 
-      logout: () => {
+      // Explicit user-initiated sign-out: revokes server-side refresh cookie + clears all client state.
+      logout: async () => {
         clearAccessToken();
-        set({ user: null, cart: [], wishlist: [] });
-        // Fire-and-forget — clears the httpOnly refresh cookie server-side
-        api.post('/auth/logout').catch(() => {});
+        set({ user: null, cart: [], wishlist: [], orders: [] });
+        // Best-effort revoke; server is idempotent (returns 200 even with no cookie).
+        try { await api.post('/auth/logout'); } catch { /* network may be down — local state is already cleared */ }
+      },
+
+      // Silent session-expired cleanup (refresh failed). Keeps cart/wishlist for re-login UX —
+      // the user didn't ask to log out, their token just lapsed. Skips server call (refresh just failed).
+      clearSession: () => {
+        clearAccessToken();
+        set({ user: null, orders: [] });
       },
 
       // ── Orders ────────────────────────────────────────────────────
       orders: [],
 
       fetchOrders: async () => {
-        try {
-          const data = await api.get('/orders');
-          set({ orders: data });
-        } catch {
-          set({ orders: [] });
-        }
+        const data = await api.get('/orders');
+        set({ orders: data || [] });
+        return data;
       },
 
-      placeOrder: async (payload) => {
-        const data = await api.post('/orders', payload);
+      fetchOrder: (id) => api.get(`/orders/${id}`),
+
+      placeOrder: async (payload, idempotencyKey) => {
+        const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined;
+        const data    = await api.post('/orders', payload, { headers });
         get().clearCart();
         return data;
+      },
+
+      // ── Sessions ──────────────────────────────────────────────────
+      fetchSessions:  ()  => api.get(`/auth/sessions`),
+      revokeSession:  (id) => api.delete(`/auth/sessions/${id}`),
+      logoutAllOther: async () => {
+        // Revoke every session except the current one — server-side equivalent
+        // would be `/logout-all` but that kills current too. We delete one-by-one.
+        const sessions = await api.get('/auth/sessions');
+        await Promise.all(
+          (sessions || [])
+            .filter((s) => !s.current)
+            .map((s) => api.delete(`/auth/sessions/${s.id}`).catch(() => {}))
+        );
+      },
+
+      cancelOrder: async (id) => {
+        const updated = await api.patch(`/orders/${id}/cancel`);
+        set((state) => ({
+          orders: state.orders.map((o) => (o.id === id ? { ...o, status: updated.status } : o)),
+        }));
+        return updated;
       },
 
       // ── Toast ─────────────────────────────────────────────────────

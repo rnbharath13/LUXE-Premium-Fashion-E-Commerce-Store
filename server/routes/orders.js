@@ -1,15 +1,42 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { createOrder, getUserOrders, getOrderById, cancelOrder } from '../controllers/orderController.js';
 import { protect } from '../middleware/auth.js';
-import { validateBody } from '../middleware/validate.js';
+import { validate } from '../middleware/validate.js';
+import { MAX_ITEMS_PER_ORDER, MAX_QUANTITY_PER_LINE } from '../config/checkout.js';
 
 const router = Router();
 
 router.use(protect);
 
-router.post('/',          validateBody(['items', 'shippingAddress', 'paymentMethod']), createOrder);
-router.get('/',           getUserOrders);
-router.get('/:id',        getOrderById);
+const addressSchema = z.object({
+  fullName:   z.string().trim().min(2).max(100),
+  phone:      z.string().trim().min(7).max(20),
+  line1:      z.string().trim().min(3).max(200),
+  line2:      z.string().trim().max(200).optional().default(''),
+  city:       z.string().trim().min(2).max(100),
+  state:      z.string().trim().min(2).max(100),
+  postalCode: z.string().trim().min(3).max(20),
+  country:    z.string().trim().min(2).max(100),
+});
+
+const orderItemSchema = z.object({
+  productId: z.string().uuid(),
+  quantity:  z.number().int().positive().max(MAX_QUANTITY_PER_LINE),
+  size:      z.string().max(50).optional().default(''),
+  color:     z.string().max(50).optional().default(''),
+});
+
+const createOrderSchema = z.object({
+  items:           z.array(orderItemSchema).min(1).max(MAX_ITEMS_PER_ORDER),
+  shippingAddress: addressSchema,
+  billingAddress:  addressSchema,
+  paymentMethod:   z.enum(['card', 'cod']),
+});
+
+router.post('/',            validate(createOrderSchema), createOrder);
+router.get('/',             getUserOrders);
+router.get('/:id',          getOrderById);
 router.patch('/:id/cancel', cancelOrder);
 
 export default router;

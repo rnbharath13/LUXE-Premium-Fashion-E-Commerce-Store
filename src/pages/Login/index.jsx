@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import useStore from '../../store/useStore';
 import './Login.css';
@@ -11,6 +11,12 @@ export default function Login() {
   const [error,   setError]   = useState('');
   const { login, showToast }  = useStore();
   const navigate              = useNavigate();
+  const location              = useLocation();
+
+  // Redirect target: where RequireAuth bounced us from, or query param, or home.
+  const redirectTo = location.state?.from
+                  || new URLSearchParams(location.search).get('redirect')
+                  || '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +26,7 @@ export default function Login() {
     try {
       await login(form.email, form.password);
       showToast('Welcome back!');
-      navigate('/');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -49,22 +55,50 @@ export default function Login() {
             <p className="auth-form-subtitle">Access your LUXE account</p>
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
-              <label className="auth-label">Email Address</label>
+              <label className="auth-label" htmlFor="login-email">Email Address</label>
               <div className="auth-input-wrap">
                 <Mail size={15} className="auth-input-icon" />
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-field" placeholder="you@example.com" />
+                <input
+                  id="login-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="input-field"
+                  placeholder="you@example.com"
+                />
               </div>
             </div>
             <div>
-              <label className="auth-label">Password</label>
+              <label className="auth-label" htmlFor="login-password">Password</label>
               <div className="auth-input-wrap">
                 <Lock size={15} className="auth-input-icon" />
-                <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-field pr-10" placeholder="••••••••" />
-                <button type="button" className="auth-input-icon-right" onClick={() => setShowPwd(!showPwd)}>
+                <input
+                  id="login-password"
+                  name="password"
+                  type={showPwd ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  required
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="input-field pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  className="auth-input-icon-right"
+                  aria-label={showPwd ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPwd(!showPwd)}
+                >
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>

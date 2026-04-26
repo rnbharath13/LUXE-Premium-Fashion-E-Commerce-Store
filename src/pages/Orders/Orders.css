@@ -63,3 +63,20 @@
 .orders-unauthenticated-inner { text-align: center; }
 .orders-unauth-icon { color: var(--text-muted); margin: 0 auto 1rem; }
 .orders-unauth-title { font-size: 1.5rem; font-weight: 700; font-family: var(--font-serif); color: var(--text-primary); margin-bottom: 0.5rem; }
+
+/* Clickable order card */
+.order-card-link { display: block; text-decoration: none; color: inherit; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+.order-card-link:hover { border-color: var(--text-secondary); transform: translateY(-1px); }
+
+/* Loading skeleton */
+.orders-skeleton {
+  height: 7rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(90deg, var(--bg-secondary) 0%, var(--border) 50%, var(--bg-secondary) 100%);
+  background-size: 200% 100%;
+  animation: orders-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes orders-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

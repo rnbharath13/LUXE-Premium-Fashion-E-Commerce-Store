@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Truck, RotateCcw, Shield, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api, normalizeProduct } from '../../lib/api';
+import { useSeo } from '../../hooks/useSeo';
 import ProductCard from '../../components/ProductCard';
 import './Home.css';
 
@@ -45,6 +46,11 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [fade,           setFade]           = useState(true);
   const [allProducts,    setAllProducts]    = useState([]);
+
+  useSeo({
+    title:       'Premium Fashion, Curated for You',
+    description: 'Discover the season\'s most-wanted pieces. Free shipping on orders over $150 · 30-day returns · Secure checkout.',
+  });
 
   const filtered = activeCategory === 'all'
     ? allProducts.slice(0, 8)

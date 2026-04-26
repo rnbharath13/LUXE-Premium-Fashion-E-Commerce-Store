@@ -6,12 +6,24 @@ let _refreshPromise = null;
 export const setAccessToken   = (t) => { _accessToken = t; };
 export const clearAccessToken = ()  => { _accessToken = null; };
 
+// Notify listeners when the session is unrecoverably gone (refresh failed).
+// Consumers (App.jsx, store) listen and clear local user state + redirect.
+const AUTH_EXPIRED_EVENT = 'luxe:auth-expired';
+export const onAuthExpired = (handler) => {
+  window.addEventListener(AUTH_EXPIRED_EVENT, handler);
+  return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handler);
+};
+
 const refreshAccessToken = () => {
   if (_refreshPromise) return _refreshPromise;
   _refreshPromise = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
     .then((res) => (res.ok ? res.json() : Promise.reject()))
     .then(({ token }) => { _accessToken = token; })
-    .catch(() => { _accessToken = null; })
+    .catch(() => {
+      _accessToken = null;
+      // Fire-and-forget — App.jsx listens and clears user state + navigates to login.
+      try { window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT)); } catch {}
+    })
     .finally(() => { _refreshPromise = null; });
   return _refreshPromise;
 };
@@ -39,11 +51,11 @@ const request = async (path, options = {}, retry = true) => {
 };
 
 export const api = {
-  get:    (path)       => request(path),
-  post:   (path, body) => request(path, { method: 'POST',   body: JSON.stringify(body) }),
-  put:    (path, body) => request(path, { method: 'PUT',    body: JSON.stringify(body) }),
-  patch:  (path, body) => request(path, { method: 'PATCH',  body: JSON.stringify(body) }),
-  delete: (path)       => request(path, { method: 'DELETE' }),
+  get:    (path,         opts = {}) => request(path, { ...opts, method: 'GET' }),
+  post:   (path, body,   opts = {}) => request(path, { ...opts, method: 'POST',   body: JSON.stringify(body) }),
+  put:    (path, body,   opts = {}) => request(path, { ...opts, method: 'PUT',    body: JSON.stringify(body) }),
+  patch:  (path, body,   opts = {}) => request(path, { ...opts, method: 'PATCH',  body: JSON.stringify(body) }),
+  delete: (path,         opts = {}) => request(path, { ...opts, method: 'DELETE' }),
 };
 
 export const normalizeProduct = (p) => ({
