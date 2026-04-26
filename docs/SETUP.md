@@ -19,8 +19,11 @@ cp .env.example .env
 
 Update `.env`:
 ```
-VITE_SUPABASE_URL=your_project_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_URL=your_project_url
+SUPABASE_ANON_KEY=your_anon_key
+JWT_SECRET=your_jwt_secret_min_32_chars
+JWT_REFRESH_SECRET=your_refresh_secret_min_32_chars
+FRONTEND_URL=http://localhost:5173
 ```
 
 Install & run:
@@ -30,10 +33,9 @@ npm run dev
 ```
 
 ## 4. Configure Frontend
-Create `src/.env.local`:
+Create `.env` in the project root:
 ```
-VITE_SUPABASE_URL=your_project_url
-VITE_SUPABASE_ANON_KEY=your_anon_key
+VITE_API_URL=http://localhost:5000/api
 ```
 
 ## 5. Start Dev Servers
